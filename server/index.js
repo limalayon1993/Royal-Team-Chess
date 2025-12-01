@@ -24,9 +24,23 @@ const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.SMTP_PORT || '465'),
     secure: parseInt(process.env.SMTP_PORT || '465') === 465, // true for 465, false for other ports
+    logger: true,
+    debug: true,
+    tls: {
+        rejectUnauthorized: false // Helps with some shared hosting certificates
+    },
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
+    }
+});
+
+// Verify connection on startup
+transporter.verify(function (error, success) {
+    if (error) {
+        console.log('SMTP Connection Error:', error);
+    } else {
+        console.log('SMTP Server is ready to take our messages');
     }
 });
 
