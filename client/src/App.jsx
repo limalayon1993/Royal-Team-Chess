@@ -4,15 +4,13 @@ import { Lobby } from './components/Lobby';
 import { GameRoom } from './components/GameRoom';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
-import { InfoModal } from './components/InfoModal';
-import { Info, Globe, Wifi } from 'lucide-react';
+import { Globe, Wifi } from 'lucide-react';
 import { translations } from './translations';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { LandingPage } from './components/LandingPage';
 
 function RoyalTeamChess({ socket, language, toggleLanguage }) {
   const [room, setRoom] = useState(null);
-  const [showInfo, setShowInfo] = useState(false);
   const [roomData, setRoomData] = useState({
     players: { white: [], black: [], spectators: [] },
     ready: { white: [], black: [] },
@@ -144,7 +142,7 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
           </button>
         </div>
 
-        {showInfo && <InfoModal onClose={() => setShowInfo(false)} language={language} />}
+
 
         <div className="glass-panel p-8 max-w-md w-full text-center">
           <h1 className="text-4xl font-bold mb-8 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
@@ -202,12 +200,7 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
               </button>
             </div>
 
-            <button
-              onClick={() => setShowInfo(true)}
-              className="mt-6 w-full flex items-center justify-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-bold uppercase tracking-wider py-2 border border-slate-700 rounded hover:bg-slate-800"
-            >
-              <Info size={16} /> {t.projectInfo}
-            </button>
+
           </div>
         </div>
       </div>
@@ -283,7 +276,7 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
 function GameApp({ language, toggleLanguage }) {
   const [socket, setSocket] = useState(null);
   const [serverUrl, setServerUrl] = useState(import.meta.env.VITE_SERVER_URL || 'http://localhost:3000');
-  const [showInfo, setShowInfo] = useState(false);
+
 
   const t = translations[language];
 

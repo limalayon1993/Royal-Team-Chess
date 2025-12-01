@@ -62,7 +62,7 @@ export const translations = {
 
         kingSafety: "King Safety",
         kingSafe: "Safe",
-        kingSurrounded: "Safe but Surrounded",
+        kingSurrounded: "Not Castled",
         kingUnsafe: "Unsafe / Exposed",
         kingDanger: "Under Attack / Check",
 
@@ -127,7 +127,7 @@ export const translations = {
         betaAccess: "Beta Pública Activa",
         heroTitle1: "El Ajedrez es ahora un",
         heroTitle2: "Deporte de Equipo.",
-        heroSubtitle: "Coordínate con un reloj compartido. Analiza datos en tiempo real. Dominad el tablero juntos sin ver las jugadas de tu compañero.",
+        heroSubtitle: "Coordínate con un reloj compartido. Analiza datos en tiempo real. Dominad el tablero juntos sin ver las jugadas de tus compañeros.",
 
         // Resultado Partida
         matchDrawn: "EMPATE",
@@ -192,7 +192,7 @@ export const translations = {
 
         kingSafety: "Seguridad del Rey",
         kingSafe: "Seguro",
-        kingSurrounded: "Seguro pero Rodeado",
+        kingSurrounded: "No Enrocado",
         kingUnsafe: "Inseguro / Expuesto",
         kingDanger: "Bajo Ataque / Jaque",
 
