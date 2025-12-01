@@ -137,7 +137,7 @@ export const translations = {
         playNow: "JUGAR AHORA",
         playAsGuest: "JUGAR COMO INVITADO",
         betaAccess: "Beta Pública Activa",
-        heroSubtitle: "Coordínate con un reloj compartido. Analiza datos en tiempo real. Domina el tablero juntos sin ver las jugadas de tu compañero.",
+        heroSubtitle: "Coordínate con un reloj compartido. Analiza datos en tiempo real. Dominad el tablero juntos sin ver las jugadas de tu compañero.",
 
         // Resultado Partida
         matchDrawn: "EMPATE",
