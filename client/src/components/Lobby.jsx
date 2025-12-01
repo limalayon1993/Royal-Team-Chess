@@ -32,6 +32,7 @@ export function Lobby({ socket, roomId, settings, players, ready, isCreator, lan
         return () => {
             socket.off('voiceData', onVoice);
             audioQueueRef.current.clear();
+            audioQueueRef.current.close();
         };
     }, [socket]);
 

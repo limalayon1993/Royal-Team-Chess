@@ -53,8 +53,24 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
             socket.off('chatMessage', onChat);
             socket.off('voiceData', onVoice);
             audioQueueRef.current.clear();
+            audioQueueRef.current.close();
         };
     }, [socket]);
+
+    // Resume AudioContext on any interaction (Autoplay Policy)
+    useEffect(() => {
+        const resumeAudio = () => {
+            if (audioQueueRef.current) {
+                audioQueueRef.current.resume();
+            }
+        };
+        window.addEventListener('click', resumeAudio);
+        window.addEventListener('keydown', resumeAudio);
+        return () => {
+            window.removeEventListener('click', resumeAudio);
+            window.removeEventListener('keydown', resumeAudio);
+        };
+    }, []);
 
     // 2. Helper Functions & Derived State
     const formatTime = (seconds) => {

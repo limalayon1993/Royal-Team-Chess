@@ -45,11 +45,12 @@ export class AudioQueue {
     }
 
     clear() {
-        // We can't easily stop scheduled nodes without tracking them all, 
-        // but closing/suspending the context is one way, or just resetting nextStartTime.
-        // For simplicity, we just reset the time.
         this.nextStartTime = 0;
-        // Ideally we would stop active sources, but for voice chat, 
-        // letting the last chunk finish is usually fine.
+    }
+
+    close() {
+        if (this.ctx && this.ctx.state !== 'closed') {
+            this.ctx.close();
+        }
     }
 }
