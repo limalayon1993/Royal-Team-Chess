@@ -15,6 +15,13 @@ export function Lobby({ socket, roomId, settings, players, ready, isCreator, lan
     const audioQueueRef = useRef(new AudioQueue());
     const t = translations[language];
 
+    // Ensure AudioContext is resumed on user interaction
+    useEffect(() => {
+        if (micOn) {
+            audioQueueRef.current.resume();
+        }
+    }, [micOn]);
+
     // Voice Data Listener (Playback)
     useEffect(() => {
         const onVoice = (data) => {

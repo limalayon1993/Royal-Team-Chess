@@ -30,6 +30,13 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
     // Audio Queue Ref to persist across renders
     const audioQueueRef = useRef(new AudioQueue());
 
+    // Ensure AudioContext is resumed on user interaction
+    useEffect(() => {
+        if (micOn) {
+            audioQueueRef.current.resume();
+        }
+    }, [micOn]);
+
     const t = translations[language];
 
     // Chat and Voice Listeners
