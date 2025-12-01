@@ -107,6 +107,7 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
   }, [socket]);
 
   const createRoom = () => {
+    console.log('Creating room...', { socketId: socket?.id, connected: socket?.connected });
     const id = Math.random().toString(36).substring(7);
     setIsCreator(true);
     socket.emit('createRoom', { roomId: id, settings: { time: 600, teamSize: 2 } });

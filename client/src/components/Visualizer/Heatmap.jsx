@@ -27,10 +27,10 @@ export function Heatmap({ data, orientation = 'white' }) {
 
                 // Empate: Tamaños iguales
                 content = (
-                    <div className="flex gap-1 items-center justify-center font-bold drop-shadow-md">
-                        <span className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] text-base font-black">{w}</span>
-                        <span className="text-[10px] text-black/50">:</span>
-                        <span className="text-black text-base font-black">{b}</span>
+                    <div className="flex gap-0.5 items-center justify-center font-bold drop-shadow-md">
+                        <span className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] text-xs font-black">{w}</span>
+                        <span className="text-[8px] text-black/50">:</span>
+                        <span className="text-black text-xs font-black">{b}</span>
                     </div>
                 );
             } else if (diff > 0) {
@@ -39,10 +39,10 @@ export function Heatmap({ data, orientation = 'white' }) {
                 bg = `hsla(${hue}, 85%, 55%, 0.9)`;
 
                 content = (
-                    <div className="flex gap-1 items-center justify-center font-bold drop-shadow-md">
-                        <span className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] text-xl font-black">{w}</span>
-                        <span className="text-[10px] opacity-70 text-white">:</span>
-                        <span className="text-black drop-shadow-[0_0_2px_rgba(255,255,255,0.9)] text-xs opacity-80 font-black">{b}</span>
+                    <div className="flex gap-0.5 items-center justify-center font-bold drop-shadow-md">
+                        <span className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] text-sm font-black">{w}</span>
+                        <span className="text-[8px] opacity-70 text-white">:</span>
+                        <span className="text-black drop-shadow-[0_0_2px_rgba(255,255,255,0.9)] text-[10px] opacity-80 font-black">{b}</span>
                     </div>
                 );
             } else {
@@ -53,10 +53,10 @@ export function Heatmap({ data, orientation = 'white' }) {
                 bg = `hsla(${hue}, 95%, ${light}%, 0.95)`;
 
                 content = (
-                    <div className="flex gap-1 items-center justify-center font-bold drop-shadow-md">
-                        <span className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] text-xs opacity-80 font-black">{w}</span>
-                        <span className="text-[10px] opacity-70 text-white">:</span>
-                        <span className="text-black drop-shadow-[0_0_2px_rgba(255,255,255,0.9)] text-xl font-black">{b}</span>
+                    <div className="flex gap-0.5 items-center justify-center font-bold drop-shadow-md">
+                        <span className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] text-[10px] opacity-80 font-black">{w}</span>
+                        <span className="text-[8px] opacity-70 text-white">:</span>
+                        <span className="text-black drop-shadow-[0_0_2px_rgba(255,255,255,0.9)] text-sm font-black">{b}</span>
                     </div>
                 );
             }
@@ -66,14 +66,14 @@ export function Heatmap({ data, orientation = 'white' }) {
             const light = 65 - (intensity * 25);
             bg = `hsla(220, 95%, ${light}%, 0.9)`;
             border = 'none';
-            content = <span className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] text-xl font-extrabold">{w}</span>;
+            content = <span className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] text-sm font-extrabold">{w}</span>;
 
         } else {
             // *** DOMINIO NEGRO (ROJO) ***
             const light = 60 - (intensity * 25);
             bg = `hsla(0, 90%, ${light}%, 0.95)`;
             border = 'none';
-            content = <span className="text-black drop-shadow-[0_0_2px_rgba(255,255,255,0.9)] text-xl font-extrabold">{b}</span>;
+            content = <span className="text-black drop-shadow-[0_0_2px_rgba(255,255,255,0.9)] text-sm font-extrabold">{b}</span>;
         }
 
         return { bg, border, content };

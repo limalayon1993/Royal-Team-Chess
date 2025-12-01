@@ -162,7 +162,7 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
                 <div className="flex-1 flex flex-col min-w-0">
 
                     {/* Top: The Game Board or Waiting Screen */}
-                    <div className="flex-1 flex items-center justify-center p-4 min-h-0 relative z-10 overflow-hidden max-h-[60vh]">
+                    <div className="flex-1 flex items-center justify-center p-4 min-h-0 relative z-10 overflow-hidden max-h-[50vh]">
                         <div key={showVisualizer ? 'v-open' : 'v-closed'} className="h-full max-w-full aspect-square relative shadow-2xl">
                             {boardResult ? (
                                 <div className="absolute inset-0 bg-slate-900/90 z-20 flex flex-col items-center justify-center text-center p-8 rounded border border-slate-700">
@@ -193,7 +193,7 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
                     </div>
 
                     {/* Bottom: Visualizer (Collapsible) */}
-                    <div className={`transition-all duration-300 ease-in-out border-t border-slate-700 bg-slate-900/95 flex flex-col ${showVisualizer ? 'h-[35vh]' : 'h-8'}`}>
+                    <div className={`transition-all duration-300 ease-in-out border-t border-slate-700 bg-slate-900/95 flex flex-col ${showVisualizer ? 'h-[40vh]' : 'h-8'}`}>
                         <div
                             className="h-8 bg-slate-800/50 flex items-center justify-between px-4 cursor-pointer hover:bg-slate-800"
                             onClick={() => setShowVisualizer(!showVisualizer)}
@@ -205,7 +205,7 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
                         </div>
 
                         {showVisualizer && (
-                            <div className="flex-1 p-6 flex gap-8 overflow-x-auto items-center justify-start">
+                            <div className="flex-1 p-2 flex gap-8 overflow-x-auto items-center justify-start">
                                 {teammateBoards.length === 0 ? (
                                     <div className="h-full aspect-square bg-slate-800/50 rounded border border-slate-700/50 flex items-center justify-center text-slate-600 text-xs">
                                         {t.waitingForTeammates}
@@ -222,7 +222,7 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
                                         const bottomBurn = role === 'white' ? board.burnLevel?.w : board.burnLevel?.b;
 
                                         return (
-                                            <div key={board.boardId} className="h-full flex flex-col gap-2 shrink-0 min-w-[350px]">
+                                            <div key={board.boardId} className="h-full flex flex-col gap-2 shrink-0 min-w-[200px]">
                                                 {/* Header: Board Name */}
                                                 <div className="text-center text-xs font-bold text-slate-400">
                                                     {t.board} {board.boardId + 1}
