@@ -21,7 +21,9 @@ const io = new Server(server, {
 
 // Email Transporter
 const transporter = nodemailer.createTransport({
-    service: 'gmail', // Or use host/port for other providers
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT || '465'),
+    secure: parseInt(process.env.SMTP_PORT || '465') === 465, // true for 465, false for other ports
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
