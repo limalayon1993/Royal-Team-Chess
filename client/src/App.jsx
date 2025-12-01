@@ -277,12 +277,14 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
   );
 }
 
+import { LandingPage } from './components/LandingPage';
+
 function App() {
   const [socket, setSocket] = useState(null);
   // Use environment variable for server URL if available (Production), otherwise default to localhost
   const [serverUrl, setServerUrl] = useState(import.meta.env.VITE_SERVER_URL || 'http://localhost:3000');
   const [language, setLanguage] = useState('en');
-  const [showInfo, setShowInfo] = useState(false);
+  const [showLanding, setShowLanding] = useState(true);
 
   const t = translations[language];
 
@@ -305,6 +307,25 @@ function App() {
     setSocket(newSocket);
   };
 
+  const handlePlayAsGuest = () => {
+    setShowLanding(false);
+  };
+
+  const handleLogin = () => {
+    alert("Login feature coming soon!");
+  };
+
+  if (showLanding) {
+    return (
+      <LandingPage
+        onPlayAsGuest={handlePlayAsGuest}
+        onLogin={handleLogin}
+        language={language}
+        toggleLanguage={toggleLanguage}
+      />
+    );
+  }
+
   if (!socket) {
     return (
       <div className="h-screen flex items-center justify-center bg-slate-900 text-white relative">
@@ -317,8 +338,6 @@ function App() {
             {language === 'en' ? 'ESPAÑOL' : 'ENGLISH'}
           </button>
         </div>
-
-        {showInfo && <InfoModal onClose={() => setShowInfo(false)} language={language} />}
 
         <div className="glass-panel p-8 max-w-md w-full text-center">
           <h1 className="text-4xl font-bold mb-8 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
@@ -346,13 +365,6 @@ function App() {
               <button type="submit" className="btn-primary w-full py-3 text-lg flex items-center justify-center gap-2">
                 <Wifi size={20} /> Connect
               </button>
-              <button
-                type="button"
-                onClick={() => setShowInfo(true)}
-                className="mt-4 w-full flex items-center justify-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-bold uppercase tracking-wider py-2 border border-slate-700 rounded hover:bg-slate-800"
-              >
-                <Info size={16} /> {t.projectInfo}
-              </button>
             </form>
           )}
 
@@ -360,15 +372,15 @@ function App() {
           {import.meta.env.VITE_SERVER_URL && (
             <div className="space-y-4">
               <p className="text-slate-400 animate-pulse">Connecting to server...</p>
-              <button
-                type="button"
-                onClick={() => setShowInfo(true)}
-                className="mt-4 w-full flex items-center justify-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-bold uppercase tracking-wider py-2 border border-slate-700 rounded hover:bg-slate-800"
-              >
-                <Info size={16} /> {t.projectInfo}
-              </button>
             </div>
           )}
+
+          <button
+            onClick={() => setShowLanding(true)}
+            className="mt-6 text-slate-500 hover:text-slate-300 text-sm underline"
+          >
+            Back to Home
+          </button>
         </div>
       </div>
     );
