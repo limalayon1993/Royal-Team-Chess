@@ -51,11 +51,11 @@ export function LandingPage({ onPlayAsGuest, onLogin, language, toggleLanguage }
                     </div>
                     <h1 className="text-5xl md:text-8xl font-black mb-8 tracking-tight leading-tight">
                         <span className="bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-                            Chess is now a
+                            {t.heroTitle1 || "Chess is now a"}
                         </span>
                         <br />
                         <span className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent drop-shadow-2xl">
-                            Team Sport.
+                            {t.heroTitle2 || "Team Sport."}
                         </span>
                     </h1>
                     <p className="text-xl md:text-2xl text-slate-400 mb-12 max-w-3xl mx-auto leading-relaxed font-light">
@@ -263,7 +263,7 @@ export function LandingPage({ onPlayAsGuest, onLogin, language, toggleLanguage }
             <section className="py-24 px-6 text-center">
                 <div className="max-w-3xl mx-auto">
                     <h2 className="text-4xl md:text-5xl font-black mb-8 text-white">
-                        Ready to join the revolution?
+                        {t.joinRevolution || "Ready to join the revolution?"}
                     </h2>
                     <button
                         onClick={onPlayAsGuest}

@@ -4,19 +4,6 @@ export const translations = {
         title: "Royal Team Chess",
         createRoom: "Create New Room",
         orJoin: "Or join existing",
-        roomIdPlaceholder: "Room ID",
-        join: "Join",
-        projectInfo: "Project Information",
-        playNow: "PLAY NOW",
-        playAsGuest: "PLAY AS GUEST",
-        betaAccess: "Public Beta Live",
-        heroSubtitle: "Coordinate with a shared clock. Analyze real-time data. Dominate the board together without seeing your partner's moves.",
-
-        // Match Result
-        matchDrawn: "MATCH DRAWN",
-        wins: "WINS!",
-        white: "White",
-        black: "Black",
         boardDetails: "Board Details",
         board: "Board",
         backToLobby: "Back to Lobby",
@@ -93,6 +80,7 @@ export const translations = {
         communityTitle: "Global Community",
         communityDesc: "Localized events, community-driven features, and international leaderboards.",
 
+        joinRevolution: "Ready to join the revolution?",
         playNowCaps: "PLAY NOW - IT'S FREE",
 
         // Game Room
@@ -137,6 +125,8 @@ export const translations = {
         playNow: "JUGAR AHORA",
         playAsGuest: "JUGAR COMO INVITADO",
         betaAccess: "Beta Pública Activa",
+        heroTitle1: "El Ajedrez es ahora un",
+        heroTitle2: "Deporte de Equipo.",
         heroSubtitle: "Coordínate con un reloj compartido. Analiza datos en tiempo real. Dominad el tablero juntos sin ver las jugadas de tu compañero.",
 
         // Resultado Partida
@@ -220,6 +210,7 @@ export const translations = {
         communityTitle: "Comunidad Global",
         communityDesc: "Eventos localizados, características impulsadas por la comunidad y tablas de clasificación internacionales.",
 
+        joinRevolution: "¿Listo para unirte a la revolución?",
         playNowCaps: "JUGAR AHORA - ES GRATIS",
 
         // Game Room
