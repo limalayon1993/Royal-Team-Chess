@@ -23,10 +23,33 @@ export function ChessBoard({ socket, roomId, role, fen }) {
             return false;
         }
 
+        // Support for "Drag to Rook" castling
+        let finalTarget = targetSquare;
+        const piece = game.get(sourceSquare);
+
+        if (piece && piece.type === 'k' && piece.color === game.turn()) {
+            // White Short Castle (e1 -> h1)
+            if (piece.color === 'w' && sourceSquare === 'e1' && targetSquare === 'h1') {
+                finalTarget = 'g1';
+            }
+            // White Long Castle (e1 -> a1)
+            else if (piece.color === 'w' && sourceSquare === 'e1' && targetSquare === 'a1') {
+                finalTarget = 'c1';
+            }
+            // Black Short Castle (e8 -> h8)
+            else if (piece.color === 'b' && sourceSquare === 'e8' && targetSquare === 'h8') {
+                finalTarget = 'g8';
+            }
+            // Black Long Castle (e8 -> a8)
+            else if (piece.color === 'b' && sourceSquare === 'e8' && targetSquare === 'a8') {
+                finalTarget = 'c8';
+            }
+        }
+
         try {
             const move = {
                 from: sourceSquare,
-                to: targetSquare,
+                to: finalTarget,
                 promotion: 'q',
             };
 
