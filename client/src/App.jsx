@@ -107,6 +107,28 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
     };
   }, [socket]);
 
+  const resetGame = () => {
+    setRoom(null);
+    setRoomData({
+      players: { white: [], black: [], spectators: [] },
+      ready: { white: [], black: [] },
+      settings: {},
+      active: false
+    });
+    setGameState(null);
+    setMyBoardId(null);
+    setTeammateBoards([]);
+    setTimer({ white: 600, black: 600 });
+    setIsCreator(false);
+    setBoardResult(null);
+
+    // Force reconnect to clean up server state (leave room)
+    if (socket) {
+      socket.disconnect();
+      socket.connect();
+    }
+  };
+
   const createRoom = () => {
     if (!username) {
       alert(t.usernamePlaceholder || "Please enter a username");
@@ -232,7 +254,7 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
           </div>
 
           <button
-            onClick={() => window.location.reload()}
+            onClick={resetGame}
             className="btn-primary mt-8 w-full"
           >
             {t.backToLobby}

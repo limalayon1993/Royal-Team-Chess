@@ -4,6 +4,7 @@ export const translations = {
         title: "Royal Team Chess",
         createRoom: "Create New Room",
         orJoin: "Or join existing",
+        join: "Join",
         boardDetails: "Board Details",
         board: "Board",
         backToLobby: "Back to Lobby",
