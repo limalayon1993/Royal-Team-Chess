@@ -33,7 +33,7 @@ export function InfoModal({ onClose, language = 'en' }) {
                         </p>
                         <p className="mt-4 flex items-center gap-2">
                             <Mail size={16} /> {t.feedback}
-                            <a href="mailto:limalayon1993@gmail.com" className="text-blue-400 hover:underline font-bold">limalayon1993@gmail.com</a>
+                            <a href="mailto:contact@royalteamchess.com" className="text-blue-400 hover:underline font-bold">contact@royalteamchess.com</a>
                         </p>
                     </section>
 
