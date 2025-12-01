@@ -50,13 +50,13 @@ export function useVoiceRecorder(socket, roomId, active) {
 
                 recorder.start();
 
-                // Stop and restart every 1 second to create standalone files
+                // Stop and restart every 250ms to create standalone files with low latency
                 intervalRef.current = setTimeout(() => {
                     if (recorder.state === 'recording') {
                         recorder.stop();
                         if (active) recordChunk(); // Recursive call to keep loop going
                     }
-                }, 1000);
+                }, 250);
             };
 
             recordChunk();
