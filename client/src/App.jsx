@@ -7,6 +7,8 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { InfoModal } from './components/InfoModal';
 import { Info, Globe, Wifi } from 'lucide-react';
 import { translations } from './translations';
+import { Routes, Route, useNavigate } from 'react-router-dom';
+import { LandingPage } from './components/LandingPage';
 
 function RoyalTeamChess({ socket, language, toggleLanguage }) {
   const [room, setRoom] = useState(null);
@@ -276,9 +278,6 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
     </ErrorBoundary>
   );
 }
-
-import { Routes, Route, useNavigate } from 'react-router-dom';
-import { LandingPage } from './components/LandingPage';
 
 // The main game logic component (formerly App)
 function GameApp({ language, toggleLanguage }) {
