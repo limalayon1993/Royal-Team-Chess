@@ -1,9 +1,20 @@
 import React, { useState } from 'react';
-import { X, Send, Mail } from 'lucide-react';
+import { X, Mail, Copy, Check } from 'lucide-react';
 import { translations } from '../translations';
 
 export function ContactModal({ onClose, language = 'en' }) {
     const t = translations[language];
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = async () => {
+        try {
+            await navigator.clipboard.writeText('contact@royalteamchess.com');
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy', err);
+        }
+    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
@@ -29,18 +40,26 @@ export function ContactModal({ onClose, language = 'en' }) {
                             : 'If you have any questions or suggestions, please email us at:'}
                     </p>
 
-                    <a
-                        href="mailto:contact@royalteamchess.com"
-                        className="inline-flex items-center gap-3 px-6 py-4 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all group border border-slate-700 hover:border-blue-500/50"
+                    <button
+                        onClick={handleCopy}
+                        className="w-full inline-flex items-center justify-center gap-3 px-6 py-4 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all group border border-slate-700 hover:border-blue-500/50 cursor-pointer"
                     >
-                        <Mail className="text-blue-400 group-hover:scale-110 transition-transform" />
-                        <span className="text-xl font-mono text-white">contact@royalteamchess.com</span>
-                    </a>
+                        {copied ? (
+                            <Check className="text-green-400" />
+                        ) : (
+                            <Copy className="text-blue-400 group-hover:scale-110 transition-transform" />
+                        )}
+                        <span className={`text-xl font-mono transition-colors ${copied ? 'text-green-400 font-bold' : 'text-white'}`}>
+                            {copied
+                                ? (language === 'es' ? '¡Copiado!' : 'Copied!')
+                                : 'contact@royalteamchess.com'}
+                        </span>
+                    </button>
 
                     <p className="text-slate-500 text-sm">
                         {language === 'es'
-                            ? 'Te responderemos lo antes posible.'
-                            : 'We will get back to you as soon as possible.'}
+                            ? 'Haz clic para copiar el correo.'
+                            : 'Click to copy email address.'}
                     </p>
                 </div>
             </div>
