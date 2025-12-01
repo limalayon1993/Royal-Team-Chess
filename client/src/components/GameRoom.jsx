@@ -66,7 +66,7 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
                             };
                         }
                     };
-                    recorder.start(100);
+                    recorder.start(1000); // 1 second chunks for better stability
                     setMediaRecorder(recorder);
                 })
                 .catch(err => {

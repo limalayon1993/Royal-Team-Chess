@@ -43,7 +43,7 @@ export function Lobby({ socket, roomId, settings, players, ready, isCreator, lan
                             };
                         }
                     };
-                    recorder.start(100);
+                    recorder.start(1000); // 1 second chunks for better stability
                     setMediaRecorder(recorder);
                 })
                 .catch(err => {
