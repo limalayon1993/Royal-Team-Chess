@@ -114,6 +114,18 @@ export const translations = {
         guestRole: "JOIN A ROOM",
         guestInstructions: "1. Get the Room ID from your friend.\n2. Enter it in the 'Join Room' box.\n3. Click 'Join'.",
         vpnNote: "No VPN or IP configuration needed anymore!",
+
+        // Contact Form
+        contact: "Contact",
+        contactTitle: "Contact Us",
+        email: "Email",
+        subject: "Subject",
+        message: "Message",
+        send: "Send",
+        sending: "Sending...",
+        sentSuccess: "Message sent successfully!",
+        sentError: "Error sending message. Please try again.",
+        close: "Close",
     },
     es: {
         // Pantalla Principal
@@ -244,5 +256,17 @@ export const translations = {
         guestRole: "UNIRSE A SALA",
         guestInstructions: "1. Obtén el ID de la Sala de tu amigo.\n2. Introdúcelo en la caja 'Unirse a Sala'.\n3. Haz clic en 'Unirse'.",
         vpnNote: "¡Ya no necesitas VPN ni configurar IPs!",
+
+        // Formulario de Contacto
+        contact: "Contacto",
+        contactTitle: "Contáctanos",
+        email: "Correo Electrónico",
+        subject: "Asunto",
+        message: "Mensaje",
+        send: "Enviar",
+        sending: "Enviando...",
+        sentSuccess: "¡Mensaje enviado con éxito!",
+        sentError: "Error al enviar mensaje. Inténtalo de nuevo.",
+        close: "Cerrar",
     }
 };

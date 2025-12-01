@@ -1,12 +1,15 @@
 import React from 'react';
-import { Crown, Users, Activity, Shield, Flame, Thermometer, Play, LogIn, Globe, MessageSquare, Trophy, Target, Zap } from 'lucide-react';
+import { Crown, Users, Activity, Shield, Flame, Thermometer, Play, LogIn, Globe, MessageSquare, Trophy, Target, Zap, Mail } from 'lucide-react';
 import { translations } from '../translations';
+import { ContactModal } from './ContactModal';
 
 export function LandingPage({ onPlayAsGuest, onLogin, language, toggleLanguage }) {
     const t = translations[language];
+    const [showContact, setShowContact] = React.useState(false);
 
     return (
         <div className="min-h-screen bg-slate-900 text-white overflow-y-auto font-sans">
+            {showContact && <ContactModal onClose={() => setShowContact(false)} language={language} />}
             {/* Navbar */}
             <nav className="sticky top-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-6 py-4 flex justify-between items-center shadow-lg">
                 <div className="flex items-center gap-3">
@@ -19,6 +22,13 @@ export function LandingPage({ onPlayAsGuest, onLogin, language, toggleLanguage }
                     </span>
                 </div>
                 <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => setShowContact(true)}
+                        className="flex items-center gap-2 px-3 py-1.5 text-slate-400 hover:text-white transition-colors text-sm font-bold uppercase tracking-wider"
+                    >
+                        <Mail size={16} />
+                        {t.contact}
+                    </button>
                     <button
                         onClick={toggleLanguage}
                         className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors text-xs font-bold text-slate-300 hover:text-white uppercase tracking-wider"

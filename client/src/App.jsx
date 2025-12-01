@@ -4,10 +4,11 @@ import { Lobby } from './components/Lobby';
 import { GameRoom } from './components/GameRoom';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
-import { Globe, Wifi } from 'lucide-react';
+import { Globe, Wifi, Mail } from 'lucide-react';
 import { translations } from './translations';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { LandingPage } from './components/LandingPage';
+import { ContactModal } from './components/ContactModal';
 
 function RoyalTeamChess({ socket, language, toggleLanguage }) {
   const [room, setRoom] = useState(null);
@@ -151,10 +152,19 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
     roomData.players.black.includes(myId) ? 'black' : 'spectator';
 
   if (!room) {
+    const [showContact, setShowContact] = useState(false);
     return (
       <div className="h-screen flex items-center justify-center bg-slate-900 text-white relative">
+        {showContact && <ContactModal onClose={() => setShowContact(false)} language={language} />}
         {/* Language Toggle */}
-        <div className="absolute top-4 right-4 z-10">
+        <div className="absolute top-4 right-4 z-10 flex items-center gap-4">
+          <button
+            onClick={() => setShowContact(true)}
+            className="flex items-center gap-2 px-3 py-2 text-slate-400 hover:text-white transition-colors text-sm font-bold uppercase tracking-wider"
+          >
+            <Mail size={16} />
+            {t.contact}
+          </button>
           <button
             onClick={toggleLanguage}
             className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors text-sm font-bold text-slate-300 hover:text-white"
@@ -318,9 +328,18 @@ function GameApp({ language, toggleLanguage }) {
   };
 
   if (!socket) {
+    const [showContact, setShowContact] = useState(false);
     return (
       <div className="h-screen flex items-center justify-center bg-slate-900 text-white relative">
-        <div className="absolute top-4 right-4 z-10">
+        {showContact && <ContactModal onClose={() => setShowContact(false)} language={language} />}
+        <div className="absolute top-4 right-4 z-10 flex items-center gap-4">
+          <button
+            onClick={() => setShowContact(true)}
+            className="flex items-center gap-2 px-3 py-2 text-slate-400 hover:text-white transition-colors text-sm font-bold uppercase tracking-wider"
+          >
+            <Mail size={16} />
+            {t.contact}
+          </button>
           <button
             onClick={toggleLanguage}
             className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors text-sm font-bold text-slate-300 hover:text-white"
