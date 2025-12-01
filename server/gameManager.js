@@ -461,11 +461,6 @@ class GameManager {
             };
         });
 
-        // Log the first board's players to debug
-        if (visualizerData.length > 0) {
-            console.log('Broadcasting Visualizer Update. Sample players:', visualizerData[0].players);
-        }
-
         this.io.to(roomId).emit('visualizerUpdate', visualizerData);
     }
 
