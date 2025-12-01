@@ -277,20 +277,16 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
   );
 }
 
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import { LandingPage } from './components/LandingPage';
 
-function App() {
+// The main game logic component (formerly App)
+function GameApp({ language, toggleLanguage }) {
   const [socket, setSocket] = useState(null);
-  // Use environment variable for server URL if available (Production), otherwise default to localhost
   const [serverUrl, setServerUrl] = useState(import.meta.env.VITE_SERVER_URL || 'http://localhost:3000');
-  const [language, setLanguage] = useState('en');
-  const [showLanding, setShowLanding] = useState(true);
+  const [showInfo, setShowInfo] = useState(false);
 
   const t = translations[language];
-
-  const toggleLanguage = () => {
-    setLanguage(prev => prev === 'en' ? 'es' : 'en');
-  };
 
   // Auto-connect if VITE_SERVER_URL is present (Production Mode)
   useEffect(() => {
@@ -306,25 +302,6 @@ function App() {
     const newSocket = io(serverUrl);
     setSocket(newSocket);
   };
-
-  const handlePlayAsGuest = () => {
-    setShowLanding(false);
-  };
-
-  const handleLogin = () => {
-    alert("Login feature coming soon!");
-  };
-
-  if (showLanding) {
-    return (
-      <LandingPage
-        onPlayAsGuest={handlePlayAsGuest}
-        onLogin={handleLogin}
-        language={language}
-        toggleLanguage={toggleLanguage}
-      />
-    );
-  }
 
   if (!socket) {
     return (
@@ -375,12 +352,9 @@ function App() {
             </div>
           )}
 
-          <button
-            onClick={() => setShowLanding(true)}
-            className="mt-6 text-slate-500 hover:text-slate-300 text-sm underline"
-          >
+          <a href="/" className="mt-6 block text-slate-500 hover:text-slate-300 text-sm underline">
             Back to Home
-          </button>
+          </a>
         </div>
       </div>
     );
@@ -389,4 +363,47 @@ function App() {
   return <RoyalTeamChess socket={socket} language={language} toggleLanguage={toggleLanguage} />;
 }
 
+function App() {
+  const [language, setLanguage] = useState('en');
+  const navigate = useNavigate();
+
+  const toggleLanguage = () => {
+    setLanguage(prev => prev === 'en' ? 'es' : 'en');
+  };
+
+  const handlePlayAsGuest = () => {
+    navigate('/play');
+  };
+
+  const handleLogin = () => {
+    alert("Login feature coming soon!");
+  };
+
+  return (
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <LandingPage
+            onPlayAsGuest={handlePlayAsGuest}
+            onLogin={handleLogin}
+            language={language}
+            toggleLanguage={toggleLanguage}
+          />
+        }
+      />
+      <Route
+        path="/play"
+        element={
+          <GameApp
+            language={language}
+            toggleLanguage={toggleLanguage}
+          />
+        }
+      />
+    </Routes>
+  );
+}
+
 export default App;
+```

@@ -1,157 +1,263 @@
 import React from 'react';
-import { Rocket, Users, Activity, Shield, Flame, Thermometer, Play, LogIn, Globe } from 'lucide-react';
+import { Crown, Users, Activity, Shield, Flame, Thermometer, Play, LogIn, Globe, MessageSquare, Trophy, Target, Zap } from 'lucide-react';
 import { translations } from '../translations';
 
 export function LandingPage({ onPlayAsGuest, onLogin, language, toggleLanguage }) {
     const t = translations[language];
 
     return (
-        <div className="min-h-screen bg-slate-900 text-white overflow-y-auto">
+        <div className="min-h-screen bg-slate-900 text-white overflow-y-auto font-sans">
             {/* Navbar */}
-            <nav className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 px-6 py-4 flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                    <Rocket className="text-blue-500" size={24} />
-                    <span className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                        Royal Team Chess
+            <nav className="sticky top-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-6 py-4 flex justify-between items-center shadow-lg">
+                <div className="flex items-center gap-3">
+                    <div className="relative">
+                        <Crown className="text-yellow-400" size={28} strokeWidth={2.5} />
+                        <div className="absolute inset-0 bg-yellow-400/20 blur-lg rounded-full"></div>
+                    </div>
+                    <span className="text-xl font-black tracking-tight bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                        ROYAL TEAM CHESS
                     </span>
                 </div>
                 <div className="flex items-center gap-4">
                     <button
                         onClick={toggleLanguage}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors text-xs font-bold text-slate-300 hover:text-white"
+                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors text-xs font-bold text-slate-300 hover:text-white uppercase tracking-wider"
                     >
                         <Globe size={14} />
                         {language === 'en' ? 'ES' : 'EN'}
                     </button>
                     <button
                         onClick={onLogin}
-                        className="hidden md:flex items-center gap-2 px-4 py-2 text-sm font-bold text-slate-300 hover:text-white transition-colors"
+                        className="hidden md:flex items-center gap-2 px-4 py-2 text-sm font-bold text-slate-400 hover:text-white transition-colors"
                     >
                         <LogIn size={16} /> Login
                     </button>
                     <button
                         onClick={onPlayAsGuest}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg font-bold transition-colors shadow-lg shadow-blue-900/20"
+                        className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg font-bold transition-all shadow-lg shadow-blue-600/20 hover:shadow-blue-600/40 hover:-translate-y-0.5"
                     >
-                        <Play size={16} /> {t.playNow || "Play Now"}
+                        <Play size={16} fill="currentColor" /> {t.playNow || "PLAY NOW"}
                     </button>
                 </div>
             </nav>
 
             {/* Hero Section */}
-            <header className="relative py-20 px-6 text-center overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-b from-blue-900/20 to-slate-900 z-0 pointer-events-none" />
-                <div className="relative z-10 max-w-4xl mx-auto">
-                    <h1 className="text-5xl md:text-7xl font-black mb-6 tracking-tight">
-                        <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
-                            Team Chess
+            <header className="relative py-24 px-6 text-center overflow-hidden">
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-900/20 via-slate-900 to-slate-900 z-0 pointer-events-none" />
+                <div className="relative z-10 max-w-5xl mx-auto">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-900/30 border border-blue-500/30 text-blue-300 text-xs font-bold mb-8 uppercase tracking-widest animate-fade-in-up">
+                        <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
+                        {t.betaAccess || "Public Beta Live"}
+                    </div>
+                    <h1 className="text-5xl md:text-8xl font-black mb-8 tracking-tight leading-tight">
+                        <span className="bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+                            Chess is now a
                         </span>
                         <br />
-                        Reinvented.
+                        <span className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent drop-shadow-2xl">
+                            Team Sport.
+                        </span>
                     </h1>
-                    <p className="text-xl text-slate-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-                        {t.futureQuote || "Experience the future of chess with shared team clocks, real-time strategy, and advanced data visualization."}
+                    <p className="text-xl md:text-2xl text-slate-400 mb-12 max-w-3xl mx-auto leading-relaxed font-light">
+                        {t.heroSubtitle || "Coordinate with a shared clock. Analyze real-time data. Dominate the board together without seeing your partner's moves."}
                     </p>
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
                         <button
                             onClick={onPlayAsGuest}
-                            className="w-full sm:w-auto px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-xl shadow-blue-900/30 flex items-center justify-center gap-2"
+                            className="w-full sm:w-auto px-10 py-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 rounded-xl font-bold text-xl transition-all transform hover:scale-105 shadow-2xl shadow-blue-900/50 flex items-center justify-center gap-3 border border-blue-400/20"
                         >
-                            <Play size={20} /> {t.playAsGuest || "Play as Guest"}
+                            <Play size={24} fill="currentColor" /> {t.playAsGuest || "PLAY AS GUEST"}
                         </button>
                         <button
                             onClick={onLogin}
-                            className="w-full sm:w-auto px-8 py-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2"
+                            className="w-full sm:w-auto px-10 py-5 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-xl font-bold text-xl transition-all flex items-center justify-center gap-3 backdrop-blur-sm"
                         >
-                            <LogIn size={20} /> Login
+                            <LogIn size={24} /> Login
                         </button>
                     </div>
                 </div>
             </header>
 
-            {/* Features Grid */}
-            <section className="py-16 px-6 bg-slate-800/30">
-                <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-8">
-                    <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-700/50 hover:border-blue-500/30 transition-colors">
-                        <div className="w-12 h-12 bg-blue-900/30 rounded-lg flex items-center justify-center mb-4 text-blue-400">
-                            <Users size={24} />
+            {/* Core Features Grid */}
+            <section className="py-20 px-6 bg-slate-800/30 border-y border-slate-800/50">
+                <div className="max-w-7xl mx-auto grid md:grid-cols-3 gap-8">
+                    {/* Feature 1 */}
+                    <div className="group bg-slate-900/50 p-8 rounded-2xl border border-slate-700/50 hover:border-blue-500/50 transition-all hover:bg-slate-900/80 hover:shadow-xl hover:shadow-blue-900/10">
+                        <div className="w-14 h-14 bg-blue-900/20 rounded-xl flex items-center justify-center mb-6 text-blue-400 group-hover:scale-110 transition-transform">
+                            <Users size={32} />
                         </div>
-                        <h3 className="text-xl font-bold mb-2 text-white">{t.teamClock || "Shared Team Clock"}</h3>
-                        <p className="text-slate-400 text-sm leading-relaxed">
-                            {t.teamClockText || "Your team shares a single clock. Coordinate moves to manage time efficiently."}
+                        <h3 className="text-2xl font-bold mb-3 text-white">{t.teamClock || "Shared Team Clock"}</h3>
+                        <p className="text-slate-400 leading-relaxed">
+                            {t.teamClockDesc || "Time is your most valuable resource. You and your teammate share a single timer. Move fast to save time for your partner's critical moments."}
                         </p>
                     </div>
-                    <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-700/50 hover:border-purple-500/30 transition-colors">
-                        <div className="w-12 h-12 bg-purple-900/30 rounded-lg flex items-center justify-center mb-4 text-purple-400">
-                            <Activity size={24} />
+
+                    {/* Feature 2 */}
+                    <div className="group bg-slate-900/50 p-8 rounded-2xl border border-slate-700/50 hover:border-purple-500/50 transition-all hover:bg-slate-900/80 hover:shadow-xl hover:shadow-purple-900/10">
+                        <div className="w-14 h-14 bg-purple-900/20 rounded-xl flex items-center justify-center mb-6 text-purple-400 group-hover:scale-110 transition-transform">
+                            <Activity size={32} />
                         </div>
-                        <h3 className="text-xl font-bold mb-2 text-white">{t.visualizers || "Data Visualizers"}</h3>
-                        <p className="text-slate-400 text-sm leading-relaxed">
-                            {t.visualizerIntro || "See your teammates' status without seeing their board. Heatmaps, Thermometers, and more."}
+                        <h3 className="text-2xl font-bold mb-3 text-white">{t.visualizers || "Data Visualizers"}</h3>
+                        <p className="text-slate-400 leading-relaxed">
+                            {t.visualizerDesc || "You can't see your partner's board, but you can see their war. Use Heatmaps, Thermometers, and Burn Rates to understand the flow of battle."}
                         </p>
                     </div>
-                    <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-700/50 hover:border-green-500/30 transition-colors">
-                        <div className="w-12 h-12 bg-green-900/30 rounded-lg flex items-center justify-center mb-4 text-green-400">
-                            <Shield size={24} />
+
+                    {/* Feature 3 (Updated) */}
+                    <div className="group bg-slate-900/50 p-8 rounded-2xl border border-slate-700/50 hover:border-green-500/50 transition-all hover:bg-slate-900/80 hover:shadow-xl hover:shadow-green-900/10">
+                        <div className="w-14 h-14 bg-green-900/20 rounded-xl flex items-center justify-center mb-6 text-green-400 group-hover:scale-110 transition-transform">
+                            <MessageSquare size={32} />
                         </div>
-                        <h3 className="text-xl font-bold mb-2 text-white">{t.kingSafety || "Strategic Depth"}</h3>
-                        <p className="text-slate-400 text-sm leading-relaxed">
-                            {t.commText || "Voice chat and real-time strategy make this more than just chess. It's a team sport."}
+                        <h3 className="text-2xl font-bold mb-3 text-white">{t.communication || "Strategic Comms"}</h3>
+                        <p className="text-slate-400 leading-relaxed">
+                            {t.commDesc || "Communication is key, but spoilers are forbidden. Discuss strategy and timing, but never reveal specific moves. Trust your teammate to execute the plan."}
                         </p>
                     </div>
                 </div>
             </section>
 
-            {/* How to Play */}
-            <section className="py-16 px-6">
-                <div className="max-w-4xl mx-auto">
-                    <h2 className="text-3xl font-bold mb-12 text-center">{t.howToPlay || "How to Play"}</h2>
+            {/* Deep Dive: How to Play */}
+            <section className="py-24 px-6">
+                <div className="max-w-5xl mx-auto">
+                    <div className="text-center mb-16">
+                        <h2 className="text-4xl md:text-5xl font-black mb-6">{t.howToPlay || "Master the Interface"}</h2>
+                        <p className="text-xl text-slate-400 max-w-2xl mx-auto">
+                            {t.howToPlaySubtitle || "Understanding the visualizers is the difference between victory and defeat."}
+                        </p>
+                    </div>
 
-                    <div className="space-y-12">
-                        <div className="flex flex-col md:flex-row gap-8 items-start">
+                    <div className="grid gap-12">
+                        {/* Thermometer */}
+                        <div className="flex flex-col md:flex-row gap-8 items-center bg-slate-800/20 p-8 rounded-3xl border border-slate-700/50">
                             <div className="flex-1">
-                                <h3 className="text-xl font-bold text-indigo-400 mb-2">{t.createGame || "1. Create or Join"}</h3>
-                                <p className="text-slate-300 leading-relaxed">
-                                    {t.createGameText || "Start a new room and share the code, or join an existing one. Pick your team (White or Black)."}
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="p-2 bg-red-900/30 rounded-lg text-red-400"><Thermometer size={24} /></div>
+                                    <h3 className="text-2xl font-bold text-white">{t.thermometer || "The Thermometer"}</h3>
+                                </div>
+                                <p className="text-slate-300 text-lg leading-relaxed mb-4">
+                                    {t.thermoExplain || "The classic advantage meter. It shows who is winning based on material and positional analysis."}
                                 </p>
+                                <ul className="space-y-2 text-slate-400">
+                                    <li className="flex items-center gap-2"><div className="w-2 h-2 bg-white rounded-full"></div> Higher bar = White Advantage</li>
+                                    <li className="flex items-center gap-2"><div className="w-2 h-2 bg-slate-500 rounded-full"></div> Lower bar = Black Advantage</li>
+                                </ul>
                             </div>
-                            <div className="flex-1 bg-slate-800 p-4 rounded-lg border border-slate-700">
-                                <div className="text-xs font-mono text-slate-500 mb-2">LOBBY PREVIEW</div>
-                                <div className="flex gap-2 mb-2">
-                                    <div className="flex-1 bg-blue-900/20 border border-blue-500/30 p-2 rounded text-center text-blue-300 text-xs font-bold">TEAM WHITE</div>
-                                    <div className="flex-1 bg-red-900/20 border border-red-500/30 p-2 rounded text-center text-red-300 text-xs font-bold">TEAM BLACK</div>
+                            <div className="flex-1 flex justify-center">
+                                {/* Visual Mockup */}
+                                <div className="w-16 h-64 bg-slate-800 rounded-full border-4 border-slate-700 relative overflow-hidden shadow-2xl">
+                                    <div className="absolute bottom-0 w-full h-[60%] bg-white transition-all duration-1000"></div>
+                                    <div className="absolute top-0 w-full h-[40%] bg-slate-900"></div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex flex-col md:flex-row-reverse gap-8 items-start">
+                        {/* Heatmap */}
+                        <div className="flex flex-col md:flex-row-reverse gap-8 items-center bg-slate-800/20 p-8 rounded-3xl border border-slate-700/50">
                             <div className="flex-1">
-                                <h3 className="text-xl font-bold text-indigo-400 mb-2">{t.visualizers || "2. The Visualizer"}</h3>
-                                <p className="text-slate-300 leading-relaxed mb-4">
-                                    {t.visualizerDesc || "You can't see your teammate's board, but you can see their data:"}
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="p-2 bg-blue-900/30 rounded-lg text-blue-400"><Activity size={24} /></div>
+                                    <h3 className="text-2xl font-bold text-white">{t.heatmap || "The Heatmap"}</h3>
+                                </div>
+                                <p className="text-slate-300 text-lg leading-relaxed mb-4">
+                                    {t.heatmapExplain || "See board control at a glance. Each square's color tells you who owns that territory."}
                                 </p>
-                                <ul className="space-y-2 text-sm text-slate-400">
-                                    <li className="flex items-center gap-2"><Activity size={16} className="text-blue-400" /> <strong>Heatmap:</strong> Control of the board</li>
-                                    <li className="flex items-center gap-2"><Thermometer size={16} className="text-red-400" /> <strong>Thermometer:</strong> Advantage meter</li>
-                                    <li className="flex items-center gap-2"><Flame size={16} className="text-orange-400" /> <strong>Burn Rate:</strong> Time usage intensity</li>
-                                </ul>
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <div className="flex items-center gap-2 text-blue-300"><span className="w-3 h-3 bg-blue-500 rounded"></span> White Control</div>
+                                    <div className="flex items-center gap-2 text-red-300"><span className="w-3 h-3 bg-red-500 rounded"></span> Black Control</div>
+                                    <div className="flex items-center gap-2 text-yellow-300"><span className="w-3 h-3 bg-yellow-500 rounded"></span> Contested (Tie)</div>
+                                    <div className="flex items-center gap-2 text-purple-300"><span className="w-3 h-3 bg-purple-500 rounded"></span> Complex Battle</div>
+                                </div>
                             </div>
-                            <div className="flex-1 bg-slate-800 p-4 rounded-lg border border-slate-700 flex items-center justify-center">
-                                <div className="grid grid-cols-4 gap-1 opacity-75">
+                            <div className="flex-1 flex justify-center">
+                                {/* Visual Mockup */}
+                                <div className="grid grid-cols-4 gap-1 p-2 bg-slate-800 rounded-lg shadow-2xl">
                                     {[...Array(16)].map((_, i) => (
-                                        <div key={i} className={`w-8 h-8 rounded ${i % 3 === 0 ? 'bg-blue-500/40' : 'bg-slate-700/50'}`}></div>
+                                        <div key={i} className={`w-10 h-10 rounded ${i === 0 ? 'bg-blue-500' : i === 5 ? 'bg-red-500' : i === 10 ? 'bg-yellow-500' : i === 15 ? 'bg-purple-500' : 'bg-slate-700/30'
+                                            }`}></div>
                                     ))}
                                 </div>
                             </div>
                         </div>
+
+                        {/* Burn Rate & King Safety */}
+                        <div className="grid md:grid-cols-2 gap-8">
+                            <div className="bg-slate-800/20 p-8 rounded-3xl border border-slate-700/50">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="p-2 bg-orange-900/30 rounded-lg text-orange-400"><Flame size={24} /></div>
+                                    <h3 className="text-xl font-bold text-white">{t.burnRate || "Time Burn"}</h3>
+                                </div>
+                                <p className="text-slate-400 mb-4">
+                                    {t.burnExplain || "Tracks time usage intensity. If the flame turns RED, your teammate is burning time faster than the team average. Tell them to hurry up!"}
+                                </p>
+                            </div>
+                            <div className="bg-slate-800/20 p-8 rounded-3xl border border-slate-700/50">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="p-2 bg-green-900/30 rounded-lg text-green-400"><Shield size={24} /></div>
+                                    <h3 className="text-xl font-bold text-white">{t.kingSafety || "King Safety"}</h3>
+                                </div>
+                                <ul className="space-y-3 text-sm text-slate-300">
+                                    <li className="flex items-center gap-3"><Shield size={16} className="text-green-500" /> Safe</li>
+                                    <li className="flex items-center gap-3"><Shield size={16} className="text-green-500 drop-shadow-[0_0_3px_rgba(239,68,68,0.8)]" /> Safe but Surrounded</li>
+                                    <li className="flex items-center gap-3"><Shield size={16} className="text-orange-500" /> Unsafe / Exposed</li>
+                                    <li className="flex items-center gap-3"><Shield size={16} className="text-red-500 animate-pulse" /> Under Attack / Check</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
 
+            {/* Future Roadmap */}
+            <section className="py-24 px-6 bg-gradient-to-b from-slate-900 to-blue-900/20 border-t border-slate-800">
+                <div className="max-w-4xl mx-auto text-center">
+                    <h2 className="text-3xl md:text-4xl font-black mb-12 flex items-center justify-center gap-3">
+                        <Target className="text-blue-500" /> {t.roadmapTitle || "The Future of Royal Team Chess"}
+                    </h2>
+
+                    <div className="grid md:grid-cols-2 gap-6 text-left">
+                        <div className="bg-slate-900/80 p-6 rounded-xl border border-slate-700/50">
+                            <h4 className="font-bold text-white mb-2 flex items-center gap-2"><Trophy size={18} className="text-yellow-400" /> Esports Revolution</h4>
+                            <p className="text-slate-400 text-sm">The platform is built for the big stage. Professional leagues, live broadcasts, and a complete Esports ecosystem.</p>
+                        </div>
+                        <div className="bg-slate-900/80 p-6 rounded-xl border border-slate-700/50">
+                            <h4 className="font-bold text-white mb-2 flex items-center gap-2"><Users size={18} className="text-blue-400" /> Clubs & Teams</h4>
+                            <p className="text-slate-400 text-sm">Create permanent teams, manage rosters, and climb the global team rankings.</p>
+                        </div>
+                        <div className="bg-slate-900/80 p-6 rounded-xl border border-slate-700/50">
+                            <h4 className="font-bold text-white mb-2 flex items-center gap-2"><Zap size={18} className="text-purple-400" /> Enhanced UI/UX</h4>
+                            <p className="text-slate-400 text-sm">Continuous improvements to the interface, new game modes, and deeper analytics.</p>
+                        </div>
+                        <div className="bg-slate-900/80 p-6 rounded-xl border border-slate-700/50">
+                            <h4 className="font-bold text-white mb-2 flex items-center gap-2"><Globe size={18} className="text-green-400" /> Global Community</h4>
+                            <p className="text-slate-400 text-sm">Localized events, community-driven features, and international leaderboards.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Final CTA */}
+            <section className="py-24 px-6 text-center">
+                <div className="max-w-3xl mx-auto">
+                    <h2 className="text-4xl md:text-5xl font-black mb-8 text-white">
+                        Ready to join the revolution?
+                    </h2>
+                    <button
+                        onClick={onPlayAsGuest}
+                        className="px-12 py-6 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 rounded-2xl font-black text-2xl transition-all transform hover:scale-105 shadow-2xl shadow-blue-900/50 flex items-center justify-center gap-4 mx-auto"
+                    >
+                        <Play size={32} fill="currentColor" /> {t.playNowCaps || "PLAY NOW - IT'S FREE"}
+                    </button>
+                </div>
+            </section>
+
             {/* Footer */}
-            <footer className="py-8 border-t border-slate-800 text-center text-slate-500 text-sm">
+            <footer className="py-12 border-t border-slate-800 text-center text-slate-500 text-sm bg-slate-950">
+                <div className="flex items-center justify-center gap-2 mb-4 opacity-50">
+                    <Crown size={20} />
+                    <span className="font-bold">Royal Team Chess</span>
+                </div>
                 <p>&copy; 2025 Royal Team Chess. All rights reserved.</p>
-                <p className="mt-2">
+                <p className="mt-4">
                     <a href="mailto:contact@royalteamchess.com" className="hover:text-blue-400 transition-colors">contact@royalteamchess.com</a>
                 </p>
             </footer>
