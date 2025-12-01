@@ -69,6 +69,7 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
     });
 
     socket.on('visualizerUpdate', (boardsData) => {
+      console.log('Client received visualizerUpdate:', boardsData);
       // Filter out my board using ref
       const others = boardsData.filter(b => b.boardId !== myBoardIdRef.current);
       setTeammateBoards(others);

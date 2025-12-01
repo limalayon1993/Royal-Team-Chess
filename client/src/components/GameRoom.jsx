@@ -221,16 +221,17 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
                                         const topName = role === 'white' ? board.players?.black : board.players?.white;
                                         const bottomName = role === 'white' ? board.players?.white : board.players?.black;
 
+                                        const topColor = role === 'white' ? 'text-red-400' : 'text-blue-400';
+                                        const bottomColor = role === 'white' ? 'text-blue-400' : 'text-red-400';
+
                                         return (
-                                            <div key={board.boardId} className="h-full flex flex-col gap-2 shrink-0 min-w-[200px]">
-                                                {/* Header: Names */}
-                                                <div className="text-center text-xs font-bold text-slate-400 flex flex-col">
-                                                    <span className="text-red-400">{topName}</span>
-                                                    <span className="text-xs text-slate-600">vs</span>
-                                                    <span className="text-blue-400">{bottomName}</span>
+                                            <div key={board.boardId} className="h-full flex flex-col gap-1 shrink-0 min-w-[200px]">
+                                                {/* Top Name */}
+                                                <div className={`text-center text-xs font-bold ${topColor} mx-4`}>
+                                                    {topName}
                                                 </div>
 
-                                                <div className="flex-1 flex gap-2">
+                                                <div className="flex-1 flex gap-2 min-h-0">
                                                     {/* Main Visualizer Container */}
                                                     <div className="h-full aspect-square flex flex-col bg-slate-800 rounded border border-slate-700 relative shadow-xl p-2">
 
@@ -290,6 +291,11 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
                                                     <div className="w-6 h-full bg-slate-800 rounded-full relative border border-slate-700 overflow-hidden shrink-0">
                                                         <Thermometer score={board.analysis?.score || 0} orientation={role} />
                                                     </div>
+                                                </div>
+
+                                                {/* Bottom Name */}
+                                                <div className={`text-center text-xs font-bold ${bottomColor} mx-4`}>
+                                                    {bottomName}
                                                 </div>
                                             </div>
                                         );

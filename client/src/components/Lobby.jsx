@@ -121,12 +121,12 @@ export function Lobby({ socket, roomId, settings, players, ready, isCreator, lan
                 <div className="grid grid-cols-2 gap-8 flex-1">
                     {/* White Team */}
                     <div className="glass-panel p-4 bg-blue-900/10 border-blue-500/30 flex flex-col">
-                        <h2 className="text-xl font-bold text-blue-400 mb-4 flex justify-between">
+                        <h2 className="text-xl font-bold text-white mb-4 flex justify-between">
                             {t.teamWhite}
                             <button
                                 onClick={() => joinTeam('white')}
                                 disabled={inWhite || players.white.length >= teamSize}
-                                className="text-xs bg-blue-600 px-2 py-1 rounded hover:bg-blue-500 disabled:opacity-50"
+                                className="text-xs bg-blue-600 px-2 py-1 rounded hover:bg-blue-500 disabled:opacity-50 text-white"
                             >
                                 {t.join}
                             </button>
@@ -150,7 +150,7 @@ export function Lobby({ socket, roomId, settings, players, ready, isCreator, lan
 
                     {/* Black Team */}
                     <div className="glass-panel p-4 bg-red-900/10 border-red-500/30 flex flex-col">
-                        <h2 className="text-xl font-bold text-red-400 mb-4 flex justify-between">
+                        <h2 className="text-xl font-bold text-slate-400 mb-4 flex justify-between">
                             {t.teamBlack}
                             <button
                                 onClick={() => joinTeam('black')}
