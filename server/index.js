@@ -21,13 +21,13 @@ const io = new Server(server, {
 
 // Email Transporter
 const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT || '465'),
-    secure: parseInt(process.env.SMTP_PORT || '465') === 465, // true for 465, false for other ports
+    host: 'smtp.gmail.com', // HARDCODED FOR DEBUGGING
+    port: 465, // HARDCODED FOR DEBUGGING
+    secure: true, // true for 465
     logger: true,
     debug: true,
     tls: {
-        rejectUnauthorized: false // Helps with some shared hosting certificates
+        rejectUnauthorized: false
     },
     auth: {
         user: process.env.EMAIL_USER,
