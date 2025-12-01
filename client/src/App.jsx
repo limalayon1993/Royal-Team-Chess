@@ -23,6 +23,7 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
   const [teammateBoards, setTeammateBoards] = useState([]);
   const [timer, setTimer] = useState({ white: 600, black: 600 });
   const [roomIdInput, setRoomIdInput] = useState('');
+  const [username, setUsername] = useState('');
   const [isCreator, setIsCreator] = useState(false);
   const [boardResult, setBoardResult] = useState(null); // { winner, reason, points }
 
@@ -106,11 +107,11 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
     };
   }, [socket]);
 
-  const [username, setUsername] = useState('');
-
-  // ... (existing code)
-
   const createRoom = () => {
+    if (!username) {
+      alert(t.usernamePlaceholder || "Please enter a username");
+      return;
+    }
     console.log('Creating room...', { socketId: socket?.id, connected: socket?.connected });
     const id = Math.random().toString(36).substring(7);
     setIsCreator(true);
@@ -118,32 +119,85 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
   };
 
   const joinRoom = () => {
-    if (!roomIdInput) return;
+    if (!roomIdInput || !username) return;
     socket.emit('joinRoom', { roomId: roomIdInput, username });
   };
 
-  // ... (existing code)
+  // Determine my role
+  const myId = socket.id;
+  const myRole = roomData.players.white.includes(myId) ? 'white' :
+    roomData.players.black.includes(myId) ? 'black' : 'spectator';
 
-            <div className="flex flex-col gap-2">
+  if (!room) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-slate-900 text-white relative">
+        {/* Language Toggle */}
+        <div className="absolute top-4 right-4 z-10">
+          <button
+            onClick={toggleLanguage}
+            className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors text-sm font-bold text-slate-300 hover:text-white"
+          >
+            <Globe size={16} />
+            {language === 'en' ? 'ESPAÑOL' : 'ENGLISH'}
+          </button>
+        </div>
+
+        {showInfo && <InfoModal onClose={() => setShowInfo(false)} language={language} />}
+
+        <div className="glass-panel p-8 max-w-md w-full text-center">
+          <h1 className="text-4xl font-bold mb-8 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+            {t.title}
+          </h1>
+          <div className="space-y-4">
+
+            {/* Username Input - Global for both Create and Join */}
+            <div className="text-left">
+              <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider">
+                {t.usernamePlaceholder || "Username"}
+              </label>
               <input
                 type="text"
-                placeholder={t.usernamePlaceholder || "Enter your username"}
+                placeholder="Player Name"
                 className="input-field w-full"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder={t.roomIdPlaceholder}
-                  className="input-field flex-1"
-                  value={roomIdInput}
-                  onChange={(e) => setRoomIdInput(e.target.value)}
-                />
-                <button onClick={joinRoom} className="btn-primary" disabled={!username}>
-                  {t.join}
-                </button>
+            </div>
+
+            <div className="border-t border-slate-700 my-4"></div>
+
+            <button
+              onClick={createRoom}
+              className={`btn-primary w-full py-3 text-lg ${!username ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={!username}
+            >
+              {t.createRoom}
+            </button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-700"></div>
               </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-slate-800 text-slate-400">{t.orJoin}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder={t.roomIdPlaceholder}
+                className="input-field flex-1"
+                value={roomIdInput}
+                onChange={(e) => setRoomIdInput(e.target.value)}
+              />
+              <button
+                onClick={joinRoom}
+                className="btn-primary"
+                disabled={!roomIdInput || !username}
+              >
+                {t.join}
+              </button>
             </div>
 
             <button
@@ -152,75 +206,75 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
             >
               <Info size={16} /> {t.projectInfo}
             </button>
-          </div >
-        </div >
-      </div >
-    );
-}
-
-if (gameState?.matchResult) {
-  const { winner, scores, details } = gameState.matchResult;
-  return (
-    <div className="h-screen flex items-center justify-center bg-slate-900 text-white">
-      <div className="glass-panel p-8 max-w-2xl w-full text-center">
-        <h1 className="text-5xl font-bold mb-4">
-          {winner === 'draw' ? t.matchDrawn : `${winner.toUpperCase()} ${t.wins}`}
-        </h1>
-        <div className="flex justify-center gap-12 text-3xl font-mono mb-8">
-          <div className="text-blue-400">{t.white}: {scores.white}</div>
-          <div className="text-red-400">{t.black}: {scores.black}</div>
+          </div>
         </div>
-
-        <div className="space-y-2 text-left bg-slate-800 p-4 rounded">
-          <h3 className="font-bold text-slate-400 mb-2">{t.boardDetails}:</h3>
-          {details.map((d, i) => (
-            <div key={i} className="flex justify-between border-b border-slate-700 py-1">
-              <span>{t.board} {d.boardId + 1}</span>
-              <span>{d.winner.toUpperCase()} ({d.reason})</span>
-              <span>+{d.points} pts</span>
-            </div>
-          ))}
-        </div>
-
-        <button
-          onClick={() => window.location.reload()}
-          className="btn-primary mt-8 w-full"
-        >
-          {t.backToLobby}
-        </button>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-if (!roomData.active) {
+  if (gameState?.matchResult) {
+    const { winner, scores, details } = gameState.matchResult;
+    return (
+      <div className="h-screen flex items-center justify-center bg-slate-900 text-white">
+        <div className="glass-panel p-8 max-w-2xl w-full text-center">
+          <h1 className="text-5xl font-bold mb-4">
+            {winner === 'draw' ? t.matchDrawn : `${winner.toUpperCase()} ${t.wins}`}
+          </h1>
+          <div className="flex justify-center gap-12 text-3xl font-mono mb-8">
+            <div className="text-blue-400">{t.white}: {scores.white}</div>
+            <div className="text-red-400">{t.black}: {scores.black}</div>
+          </div>
+
+          <div className="space-y-2 text-left bg-slate-800 p-4 rounded">
+            <h3 className="font-bold text-slate-400 mb-2">{t.boardDetails}:</h3>
+            {details.map((d, i) => (
+              <div key={i} className="flex justify-between border-b border-slate-700 py-1">
+                <span>{t.board} {d.boardId + 1}</span>
+                <span>{d.winner.toUpperCase()} ({d.reason})</span>
+                <span>+{d.points} pts</span>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={() => window.location.reload()}
+            className="btn-primary mt-8 w-full"
+          >
+            {t.backToLobby}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!roomData.active) {
+    return (
+      <Lobby
+        socket={socket}
+        roomId={room}
+        settings={roomData.settings}
+        players={roomData.players}
+        ready={roomData.ready}
+        isCreator={isCreator}
+        language={language}
+      />
+    );
+  }
+
   return (
-    <Lobby
-      socket={socket}
-      roomId={room}
-      settings={roomData.settings}
-      players={roomData.players}
-      ready={roomData.ready}
-      isCreator={isCreator}
-      language={language}
-    />
+    <ErrorBoundary>
+      <GameRoom
+        socket={socket}
+        roomId={room}
+        role={myRole}
+        gameState={gameState}
+        teammateBoards={teammateBoards}
+        timer={timer}
+        boardResult={boardResult}
+        language={language}
+      />
+    </ErrorBoundary>
   );
-}
-
-return (
-  <ErrorBoundary>
-    <GameRoom
-      socket={socket}
-      roomId={room}
-      role={myRole}
-      gameState={gameState}
-      teammateBoards={teammateBoards}
-      timer={timer}
-      boardResult={boardResult}
-      language={language}
-    />
-  </ErrorBoundary>
-);
 }
 
 function App() {
