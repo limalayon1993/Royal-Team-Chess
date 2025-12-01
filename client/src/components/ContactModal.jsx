@@ -15,27 +15,36 @@ export function ContactModal({ onClose, language = 'en' }) {
         e.preventDefault();
         setStatus('sending');
 
-        // Simulate API call for now
-        // In a real app, this would POST to /api/contact
         try {
-            // Simulate delay
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            const response = await fetch(`${import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'}/api/contact`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData),
+            });
 
-            // For now, we'll just log it. 
-            // To actually send email, we'd need a backend endpoint with Nodemailer
-            console.log('Contact Form Data:', formData);
+            const data = await response.json();
 
-            // Construct mailto link as a fallback/immediate solution if backend isn't ready
-            const mailtoLink = `mailto:contact@royalteamchess.com?subject=${encodeURIComponent(formData.subject)}&body=${encodeURIComponent(`From: ${formData.email}\n\n${formData.message}`)}`;
-            window.location.href = mailtoLink;
-
-            setStatus('success');
-            setTimeout(() => {
-                onClose();
-            }, 2000);
+            if (data.success) {
+                setStatus('success');
+                setTimeout(() => {
+                    onClose();
+                    setStatus('idle');
+                    setFormData({ email: '', subject: '', message: '' });
+                }, 2000);
+            } else {
+                throw new Error(data.error || 'Failed to send');
+            }
         } catch (error) {
             console.error('Error sending message:', error);
             setStatus('error');
+
+            // Fallback to mailto if server fails
+            setTimeout(() => {
+                const mailtoLink = `mailto:contact@royalteamchess.com?subject=${encodeURIComponent(formData.subject)}&body=${encodeURIComponent(`From: ${formData.email}\n\n${formData.message}`)}`;
+                window.location.href = mailtoLink;
+            }, 1500);
         }
     };
 

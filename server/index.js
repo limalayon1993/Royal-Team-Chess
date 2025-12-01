@@ -4,14 +4,45 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const GameManager = require('./gameManager');
 
+const nodemailer = require('nodemailer');
+require('dotenv').config();
+
 const app = express();
 app.use(cors());
+app.use(express.json());
 
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
         origin: "*",
         methods: ["GET", "POST"]
+    }
+});
+
+// Email Transporter
+const transporter = nodemailer.createTransport({
+    service: 'gmail', // Or use host/port for other providers
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+app.post('/api/contact', async (req, res) => {
+    const { email, subject, message } = req.body;
+
+    try {
+        await transporter.sendMail({
+            from: email,
+            to: process.env.EMAIL_USER || 'contact@royalteamchess.com', // Send to yourself
+            subject: `[RTC Contact] ${subject}`,
+            text: `From: ${email}\n\n${message}`,
+            html: `<p><strong>From:</strong> ${email}</p><p><strong>Subject:</strong> ${subject}</p><p><strong>Message:</strong></p><p>${message.replace(/\n/g, '<br>')}</p>`
+        });
+        res.status(200).json({ success: true });
+    } catch (error) {
+        console.error('Email error:', error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
