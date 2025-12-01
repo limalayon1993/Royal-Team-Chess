@@ -15,6 +15,10 @@ const getPieceIcon = (piece, color) => {
     return icons[color]?.[piece.toLowerCase()] || '';
 };
 
+import { AudioQueue } from '../utils/AudioQueue';
+
+// ... (imports remain the same)
+
 export function GameRoom({ socket, roomId, role, gameState, teammateBoards, timer, boardResult, language = 'en' }) {
     // 1. All Hooks at the top
     const [showVisualizer, setShowVisualizer] = useState(true);
@@ -23,6 +27,9 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
     const [inputText, setInputText] = useState('');
     const [mediaRecorder, setMediaRecorder] = useState(null);
 
+    // Audio Queue Ref to persist across renders
+    const audioQueueRef = React.useRef(new AudioQueue());
+
     const t = translations[language];
 
     // Chat and Voice Listeners
@@ -30,16 +37,7 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
         const onChat = (msg) => setMessages(prev => [...prev, msg]);
         const onVoice = (data) => {
             if (!micOn) {
-                try {
-                    const audio = new Audio(data);
-                    audio.play().catch(e => {
-                        console.error('Audio play error:', e);
-                        // Auto-play policy might block this. 
-                        // We could show a "Click to enable audio" toast here if needed.
-                    });
-                } catch (err) {
-                    console.error('Audio creation error:', err);
-                }
+                audioQueueRef.current.add(data);
             }
         };
 
@@ -49,6 +47,7 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
         return () => {
             socket.off('chatMessage', onChat);
             socket.off('voiceData', onVoice);
+            audioQueueRef.current.clear();
         };
     }, [micOn, socket]);
 
