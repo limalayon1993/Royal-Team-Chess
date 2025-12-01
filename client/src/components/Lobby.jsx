@@ -52,8 +52,21 @@ export function Lobby({ socket, roomId, settings, players, ready, isCreator, lan
                     </div>
                     <div className="flex gap-4 items-center">
                         {/* Voice Chat Toggle */}
+                        {/* Voice Chat Toggle */}
                         <button
-                            onClick={() => setMicOn(!micOn)}
+                            onClick={() => {
+                                if (!micOn) {
+                                    navigator.mediaDevices.getUserMedia({ audio: true })
+                                        .then(() => setMicOn(true))
+                                        .catch(err => {
+                                            console.error('Mic access denied:', err);
+                                            alert(t.micError || 'Microphone access denied');
+                                            setMicOn(false);
+                                        });
+                                } else {
+                                    setMicOn(false);
+                                }
+                            }}
                             className={`p-2 rounded-full ${micOn ? 'bg-green-600' : 'bg-slate-700 hover:bg-slate-600'}`}
                             title="Toggle Voice Chat"
                         >

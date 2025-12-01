@@ -30,8 +30,16 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
         const onChat = (msg) => setMessages(prev => [...prev, msg]);
         const onVoice = (data) => {
             if (!micOn) {
-                const audio = new Audio(data);
-                audio.play().catch(e => console.error('Audio play error:', e));
+                try {
+                    const audio = new Audio(data);
+                    audio.play().catch(e => {
+                        console.error('Audio play error:', e);
+                        // Auto-play policy might block this. 
+                        // We could show a "Click to enable audio" toast here if needed.
+                    });
+                } catch (err) {
+                    console.error('Audio creation error:', err);
+                }
             }
         };
 
