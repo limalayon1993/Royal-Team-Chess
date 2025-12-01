@@ -1,63 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Users, Clock, Play, Mic, MicOff } from 'lucide-react';
 import { translations } from '../translations';
-
+import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import { AudioQueue } from '../utils/AudioQueue';
 
 export function Lobby({ socket, roomId, settings, players, ready, isCreator, language = 'en' }) {
     const [teamSize, setTeamSize] = useState(settings?.teamSize || 2);
     const [time, setTime] = useState(settings?.time || 600);
     const [micOn, setMicOn] = useState(false);
-    const [mediaRecorder, setMediaRecorder] = useState(null); // Add mediaRecorder state
 
-    const audioQueueRef = React.useRef(new AudioQueue());
+    // Use the new hook for recording
+    useVoiceRecorder(socket, roomId, micOn);
+
+    const audioQueueRef = useRef(new AudioQueue());
     const t = translations[language];
 
     // Voice Data Listener (Playback)
     useEffect(() => {
         const onVoice = (data) => {
-            if (!micOn) { // Only play if not speaking (to avoid echo) - or allow it? Usually avoid self-echo.
-                audioQueueRef.current.add(data);
-            }
+            // Only play if we are NOT the one speaking (simple echo cancellation)
+            audioQueueRef.current.add(data);
         };
         socket.on('voiceData', onVoice);
         return () => {
             socket.off('voiceData', onVoice);
             audioQueueRef.current.clear();
         };
-    }, [micOn, socket]);
-
-    // Mic Capture Logic (Same as GameRoom)
-    useEffect(() => {
-        if (micOn) {
-            // ... (We need to start recording here, logic was missing in previous Lobby code!)
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(stream => {
-                    const recorder = new MediaRecorder(stream);
-                    recorder.ondataavailable = (e) => {
-                        if (e.data.size > 0) {
-                            const reader = new FileReader();
-                            reader.readAsDataURL(e.data);
-                            reader.onloadend = () => {
-                                socket.emit('voiceData', { roomId, data: reader.result });
-                            };
-                        }
-                    };
-                    recorder.start(1000); // 1 second chunks for better stability
-                    setMediaRecorder(recorder);
-                })
-                .catch(err => {
-                    console.error('Mic access denied:', err);
-                    setMicOn(false);
-                });
-        } else {
-            if (mediaRecorder) {
-                mediaRecorder.stop();
-                mediaRecorder.stream.getTracks().forEach(track => track.stop());
-                setMediaRecorder(null);
-            }
-        }
-    }, [micOn, roomId, socket]);
+    }, [socket]);
 
     useEffect(() => {
         if (settings) {
@@ -102,21 +71,8 @@ export function Lobby({ socket, roomId, settings, players, ready, isCreator, lan
                     </div>
                     <div className="flex gap-4 items-center">
                         {/* Voice Chat Toggle */}
-                        {/* Voice Chat Toggle */}
                         <button
-                            onClick={() => {
-                                if (!micOn) {
-                                    navigator.mediaDevices.getUserMedia({ audio: true })
-                                        .then(() => setMicOn(true))
-                                        .catch(err => {
-                                            console.error('Mic access denied:', err);
-                                            alert(t.micError || 'Microphone access denied');
-                                            setMicOn(false);
-                                        });
-                                } else {
-                                    setMicOn(false);
-                                }
-                            }}
+                            onClick={() => setMicOn(!micOn)}
                             className={`p-2 rounded-full ${micOn ? 'bg-green-600' : 'bg-slate-700 hover:bg-slate-600'}`}
                             title="Toggle Voice Chat"
                         >

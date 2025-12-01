@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChessBoard } from './ChessBoard';
 import { Heatmap } from './Visualizer/Heatmap';
 import { Thermometer } from './Visualizer/Thermometer';
@@ -6,6 +6,8 @@ import { Shield } from './Visualizer/Shield';
 import { Flame } from './Visualizer/Flame';
 import { MessageSquare, Activity, Mic, MicOff, ChevronDown, ChevronUp, Flag, Send, Clock, Users } from 'lucide-react';
 import { translations } from '../translations';
+import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
+import { AudioQueue } from '../utils/AudioQueue';
 
 const getPieceIcon = (piece, color) => {
     const icons = {
@@ -15,20 +17,18 @@ const getPieceIcon = (piece, color) => {
     return icons[color]?.[piece.toLowerCase()] || '';
 };
 
-import { AudioQueue } from '../utils/AudioQueue';
-
-// ... (imports remain the same)
-
 export function GameRoom({ socket, roomId, role, gameState, teammateBoards, timer, boardResult, language = 'en' }) {
     // 1. All Hooks at the top
     const [showVisualizer, setShowVisualizer] = useState(true);
     const [micOn, setMicOn] = useState(false);
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState('');
-    const [mediaRecorder, setMediaRecorder] = useState(null);
+
+    // Use the new hook for recording
+    useVoiceRecorder(socket, roomId, micOn);
 
     // Audio Queue Ref to persist across renders
-    const audioQueueRef = React.useRef(new AudioQueue());
+    const audioQueueRef = useRef(new AudioQueue());
 
     const t = translations[language];
 
@@ -36,9 +36,7 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
     useEffect(() => {
         const onChat = (msg) => setMessages(prev => [...prev, msg]);
         const onVoice = (data) => {
-            if (!micOn) {
-                audioQueueRef.current.add(data);
-            }
+            audioQueueRef.current.add(data);
         };
 
         socket.on('chatMessage', onChat);
@@ -49,38 +47,7 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
             socket.off('voiceData', onVoice);
             audioQueueRef.current.clear();
         };
-    }, [micOn, socket]);
-
-    // Voice Chat Logic
-    useEffect(() => {
-        if (micOn) {
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(stream => {
-                    const recorder = new MediaRecorder(stream);
-                    recorder.ondataavailable = (e) => {
-                        if (e.data.size > 0) {
-                            const reader = new FileReader();
-                            reader.readAsDataURL(e.data);
-                            reader.onloadend = () => {
-                                socket.emit('voiceData', { roomId, data: reader.result });
-                            };
-                        }
-                    };
-                    recorder.start(1000); // 1 second chunks for better stability
-                    setMediaRecorder(recorder);
-                })
-                .catch(err => {
-                    console.error('Mic access denied:', err);
-                    setMicOn(false);
-                });
-        } else {
-            if (mediaRecorder) {
-                mediaRecorder.stop();
-                mediaRecorder.stream.getTracks().forEach(track => track.stop());
-                setMediaRecorder(null);
-            }
-        }
-    }, [micOn, roomId, socket]);
+    }, [socket]);
 
     // 2. Helper Functions & Derived State
     const formatTime = (seconds) => {
