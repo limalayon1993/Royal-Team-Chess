@@ -138,8 +138,8 @@ export function LandingPage({ onPlayAsGuest, onLogin, language, toggleLanguage }
                                     {t.thermoExplain || "The classic advantage meter. It shows who is winning based on material and positional analysis."}
                                 </p>
                                 <ul className="space-y-2 text-slate-400">
-                                    <li className="flex items-center gap-2"><div className="w-2 h-2 bg-white rounded-full"></div> Higher bar = White Advantage</li>
-                                    <li className="flex items-center gap-2"><div className="w-2 h-2 bg-slate-500 rounded-full"></div> Lower bar = Black Advantage</li>
+                                    <li className="flex items-center gap-2"><div className="w-2 h-2 bg-white rounded-full"></div> {t.thermoWhite || "White Bar = White Control"}</li>
+                                    <li className="flex items-center gap-2"><div className="w-2 h-2 bg-slate-500 rounded-full"></div> {t.thermoBlack || "Black Bar = Black Control"}</li>
                                 </ul>
                             </div>
                             <div className="flex-1 flex justify-center">
@@ -162,10 +162,10 @@ export function LandingPage({ onPlayAsGuest, onLogin, language, toggleLanguage }
                                     {t.heatmapExplain || "See board control at a glance. Each square's color tells you who owns that territory."}
                                 </p>
                                 <div className="grid grid-cols-2 gap-3 text-sm">
-                                    <div className="flex items-center gap-2 text-blue-300"><span className="w-3 h-3 bg-blue-500 rounded"></span> White Control</div>
-                                    <div className="flex items-center gap-2 text-red-300"><span className="w-3 h-3 bg-red-500 rounded"></span> Black Control</div>
-                                    <div className="flex items-center gap-2 text-yellow-300"><span className="w-3 h-3 bg-yellow-500 rounded"></span> Contested (Tie)</div>
-                                    <div className="flex items-center gap-2 text-purple-300"><span className="w-3 h-3 bg-purple-500 rounded"></span> Complex Battle</div>
+                                    <div className="flex items-center gap-2 text-blue-300"><span className="w-3 h-3 bg-blue-500 rounded"></span> {t.whiteControl || "White Control"}</div>
+                                    <div className="flex items-center gap-2 text-red-300"><span className="w-3 h-3 bg-red-500 rounded"></span> {t.blackControl || "Black Control"}</div>
+                                    <div className="flex items-center gap-2 text-yellow-300"><span className="w-3 h-3 bg-yellow-500 rounded"></span> {t.contestedTie || "Contested (Tie)"}</div>
+                                    <div className="flex items-center gap-2 text-purple-300"><span className="w-3 h-3 bg-purple-500 rounded"></span> {t.complexBattle || "Complex Battle"}</div>
                                 </div>
                             </div>
                             <div className="flex-1 flex justify-center">
@@ -196,10 +196,10 @@ export function LandingPage({ onPlayAsGuest, onLogin, language, toggleLanguage }
                                     <h3 className="text-xl font-bold text-white">{t.kingSafety || "King Safety"}</h3>
                                 </div>
                                 <ul className="space-y-3 text-sm text-slate-300">
-                                    <li className="flex items-center gap-3"><Shield size={16} className="text-green-500" /> Safe</li>
-                                    <li className="flex items-center gap-3"><Shield size={16} className="text-green-500 drop-shadow-[0_0_3px_rgba(239,68,68,0.8)]" /> Safe but Surrounded</li>
-                                    <li className="flex items-center gap-3"><Shield size={16} className="text-orange-500" /> Unsafe / Exposed</li>
-                                    <li className="flex items-center gap-3"><Shield size={16} className="text-red-500 animate-pulse" /> Under Attack / Check</li>
+                                    <li className="flex items-center gap-3"><Shield size={16} className="text-green-500" /> {t.kingSafe || "Safe"}</li>
+                                    <li className="flex items-center gap-3"><Shield size={16} className="text-green-500 drop-shadow-[0_0_3px_rgba(239,68,68,0.8)]" /> {t.kingSurrounded || "Safe but Surrounded"}</li>
+                                    <li className="flex items-center gap-3"><Shield size={16} className="text-orange-500" /> {t.kingUnsafe || "Unsafe / Exposed"}</li>
+                                    <li className="flex items-center gap-3"><Shield size={16} className="text-red-500 animate-pulse" /> {t.kingDanger || "Under Attack / Check"}</li>
                                 </ul>
                             </div>
                         </div>
@@ -209,27 +209,55 @@ export function LandingPage({ onPlayAsGuest, onLogin, language, toggleLanguage }
 
             {/* Future Roadmap */}
             <section className="py-24 px-6 bg-gradient-to-b from-slate-900 to-blue-900/20 border-t border-slate-800">
-                <div className="max-w-4xl mx-auto text-center">
+                <div className="max-w-6xl mx-auto text-center">
                     <h2 className="text-3xl md:text-4xl font-black mb-12 flex items-center justify-center gap-3">
                         <Target className="text-blue-500" /> {t.roadmapTitle || "The Future of Royal Team Chess"}
                     </h2>
 
-                    <div className="grid md:grid-cols-2 gap-6 text-left">
-                        <div className="bg-slate-900/80 p-6 rounded-xl border border-slate-700/50">
-                            <h4 className="font-bold text-white mb-2 flex items-center gap-2"><Trophy size={18} className="text-yellow-400" /> Esports Revolution</h4>
-                            <p className="text-slate-400 text-sm">The platform is built for the big stage. Professional leagues, live broadcasts, and a complete Esports ecosystem.</p>
+                    {/* Match Mode Highlight */}
+                    <div className="bg-gradient-to-r from-blue-900/40 to-purple-900/40 p-8 rounded-3xl border border-blue-500/30 mb-12 relative overflow-hidden group hover:border-blue-500/50 transition-all">
+                        <div className="absolute inset-0 bg-blue-500/5 group-hover:bg-blue-500/10 transition-colors"></div>
+                        <div className="relative z-10 text-left md:flex items-center gap-8">
+                            <div className="flex-1">
+                                <h3 className="text-3xl font-black text-white mb-4 flex items-center gap-3">
+                                    <Trophy className="text-yellow-400" size={32} />
+                                    {t.matchModeTitle || "The 'Match' Mode"}
+                                </h3>
+                                <p className="text-slate-300 text-lg leading-relaxed">
+                                    {t.matchModeDesc || "The ultimate competitive experience. 4vs4 battles, 2 halves, substitutions, and bench strategy. A fast-paced, dynamic, and spectator-friendly format that revolutionizes team chess."}
+                                </p>
+                            </div>
+                            <div className="mt-6 md:mt-0">
+                                <div className="grid grid-cols-2 gap-2 opacity-50">
+                                    <div className="w-12 h-12 bg-slate-700 rounded-lg"></div>
+                                    <div className="w-12 h-12 bg-slate-700 rounded-lg"></div>
+                                    <div className="w-12 h-12 bg-slate-700 rounded-lg"></div>
+                                    <div className="w-12 h-12 bg-slate-700 rounded-lg"></div>
+                                </div>
+                            </div>
                         </div>
-                        <div className="bg-slate-900/80 p-6 rounded-xl border border-slate-700/50">
-                            <h4 className="font-bold text-white mb-2 flex items-center gap-2"><Users size={18} className="text-blue-400" /> Clubs & Teams</h4>
-                            <p className="text-slate-400 text-sm">Create permanent teams, manage rosters, and climb the global team rankings.</p>
+                    </div>
+
+                    <div className="grid md:grid-cols-3 gap-6 text-left">
+                        <div className="bg-slate-900/80 p-6 rounded-xl border border-slate-700/50 hover:border-yellow-500/30 transition-colors">
+                            <h4 className="font-bold text-white mb-2 flex items-center gap-2"><Trophy size={18} className="text-yellow-400" /> {t.esportsTitle || "Esports Revolution"}</h4>
+                            <p className="text-slate-400 text-sm">{t.esportsDesc || "Professional leagues played on weekends, live broadcasts, and a complete Esports ecosystem."}</p>
                         </div>
-                        <div className="bg-slate-900/80 p-6 rounded-xl border border-slate-700/50">
-                            <h4 className="font-bold text-white mb-2 flex items-center gap-2"><Zap size={18} className="text-purple-400" /> Enhanced UI/UX</h4>
-                            <p className="text-slate-400 text-sm">Continuous improvements to the interface, new game modes, and deeper analytics.</p>
+                        <div className="bg-slate-900/80 p-6 rounded-xl border border-slate-700/50 hover:border-orange-500/30 transition-colors">
+                            <h4 className="font-bold text-white mb-2 flex items-center gap-2"><Crown size={18} className="text-orange-400" /> {t.tournamentsTitle || "Official Tournaments"}</h4>
+                            <p className="text-slate-400 text-sm">{t.tournamentsDesc || "Regular official tournaments with real prizes, open to all skill levels."}</p>
                         </div>
-                        <div className="bg-slate-900/80 p-6 rounded-xl border border-slate-700/50">
-                            <h4 className="font-bold text-white mb-2 flex items-center gap-2"><Globe size={18} className="text-green-400" /> Global Community</h4>
-                            <p className="text-slate-400 text-sm">Localized events, community-driven features, and international leaderboards.</p>
+                        <div className="bg-slate-900/80 p-6 rounded-xl border border-slate-700/50 hover:border-purple-500/30 transition-colors">
+                            <h4 className="font-bold text-white mb-2 flex items-center gap-2"><Zap size={18} className="text-purple-400" /> {t.gameModesTitle || "New Game Modes"}</h4>
+                            <p className="text-slate-400 text-sm">{t.gameModesDesc || "Single Game, Match Mode, Knockout, Tournament, and League. Official or community-created."}</p>
+                        </div>
+                        <div className="bg-slate-900/80 p-6 rounded-xl border border-slate-700/50 hover:border-blue-500/30 transition-colors">
+                            <h4 className="font-bold text-white mb-2 flex items-center gap-2"><Users size={18} className="text-blue-400" /> {t.clubsTitle || "Clubs & Teams"}</h4>
+                            <p className="text-slate-400 text-sm">{t.clubsDesc || "Create permanent teams, manage rosters, and climb the global team rankings."}</p>
+                        </div>
+                        <div className="bg-slate-900/80 p-6 rounded-xl border border-slate-700/50 hover:border-green-500/30 transition-colors">
+                            <h4 className="font-bold text-white mb-2 flex items-center gap-2"><Globe size={18} className="text-green-400" /> {t.communityTitle || "Global Community"}</h4>
+                            <p className="text-slate-400 text-sm">{t.communityDesc || "Localized events, community-driven features, and international leaderboards."}</p>
                         </div>
                     </div>
                 </div>
