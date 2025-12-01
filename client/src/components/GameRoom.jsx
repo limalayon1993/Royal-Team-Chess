@@ -218,11 +218,16 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
                                         const topBurn = role === 'white' ? board.burnLevel?.b : board.burnLevel?.w;
                                         const bottomBurn = role === 'white' ? board.burnLevel?.w : board.burnLevel?.b;
 
+                                        const topName = role === 'white' ? board.players?.black : board.players?.white;
+                                        const bottomName = role === 'white' ? board.players?.white : board.players?.black;
+
                                         return (
                                             <div key={board.boardId} className="h-full flex flex-col gap-2 shrink-0 min-w-[200px]">
-                                                {/* Header: Board Name */}
-                                                <div className="text-center text-xs font-bold text-slate-400">
-                                                    {t.board} {board.boardId + 1}
+                                                {/* Header: Names */}
+                                                <div className="text-center text-xs font-bold text-slate-400 flex flex-col">
+                                                    <span className="text-red-400">{topName}</span>
+                                                    <span className="text-xs text-slate-600">vs</span>
+                                                    <span className="text-blue-400">{bottomName}</span>
                                                 </div>
 
                                                 <div className="flex-1 flex gap-2">
