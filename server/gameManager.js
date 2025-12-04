@@ -8,9 +8,9 @@ class GameManager {
         this.rooms = new Map(); // roomId -> { boards: [], players, timer, settings, ... }
     }
 
-    createRoom(socket, { roomId, username, settings }) {
+    createRoom(socket, { roomId, username, settings, roomName, isPrivate, password, language }) {
         try {
-            console.log('Received createRoom request:', roomId);
+            console.log('Received createRoom request:', { roomId, roomName, isPrivate, settings });
             if (this.rooms.has(roomId)) {
                 socket.emit('error', 'Room already exists');
                 return;
@@ -24,6 +24,13 @@ class GameManager {
             };
 
             this.rooms.set(roomId, {
+                metadata: {
+                    name: roomName || `Room ${roomId}`,
+                    isPrivate: !!isPrivate,
+                    password: password || null,
+                    language: language || 'en',
+                    createdAt: Date.now()
+                },
                 boards: [], // Array of { game, whitePlayerId, blackPlayerId }
                 settings: roomSettings,
                 players: {
@@ -47,10 +54,63 @@ class GameManager {
             socket.join(roomId);
             socket.emit('roomCreated', roomId);
             console.log(`Room ${roomId} created successfully`);
+
+            // Broadcast updated room list to everyone
+            this.broadcastRoomsList();
         } catch (err) {
             console.error('Error in createRoom:', err);
             socket.emit('error', 'Failed to create room');
         }
+    }
+
+    getRooms(socket) {
+        const roomsList = [];
+        this.rooms.forEach((room, id) => {
+            if (!room.metadata.isPrivate) {
+                roomsList.push({
+                    id,
+                    name: room.metadata.name,
+                    language: room.metadata.language,
+                    players: room.players.white.length + room.players.black.length,
+                    maxPlayers: room.settings.teamSize * 2,
+                    settings: room.settings,
+                    active: room.active
+                });
+            } else {
+                // Optionally send private rooms with a lock flag, but no details if we want to hide them completely.
+                // For now, let's list them but mark as locked so people can try to join if they know the password.
+                roomsList.push({
+                    id,
+                    name: room.metadata.name,
+                    language: room.metadata.language,
+                    players: room.players.white.length + room.players.black.length,
+                    maxPlayers: room.settings.teamSize * 2,
+                    settings: room.settings,
+                    active: room.active,
+                    isPrivate: true
+                });
+            }
+        });
+        console.log(`[GameManager] getRooms called. Returning ${roomsList.length} rooms.`);
+        socket.emit('roomsList', roomsList);
+    }
+
+    broadcastRoomsList() {
+        const roomsList = [];
+        this.rooms.forEach((room, id) => {
+            roomsList.push({
+                id,
+                name: room.metadata.name,
+                language: room.metadata.language,
+                players: room.players.white.length + room.players.black.length,
+                maxPlayers: room.settings.teamSize * 2,
+                settings: room.settings,
+                active: room.active,
+                isPrivate: room.metadata.isPrivate
+            });
+        });
+        console.log(`[GameManager] Broadcasting rooms list to all clients. Count: ${roomsList.length}`);
+        this.io.emit('roomsList', roomsList);
     }
 
     updateSettings(socket, { roomId, settings }) {
@@ -68,17 +128,50 @@ class GameManager {
         this.emitRoomUpdate(roomId);
     }
 
-    joinRoom(socket, { roomId, username }) {
+    joinRoom(socket, { roomId, username, password }) {
         const room = this.rooms.get(roomId);
         if (!room) {
             socket.emit('error', 'Room not found');
             return;
         }
+
+        if (room.metadata.isPrivate && room.metadata.password !== password) {
+            socket.emit('error', 'Incorrect password');
+            return;
+        }
+
         if (username) room.usernames.set(socket.id, username);
 
         socket.join(roomId);
-        socket.emit('joinedRoom', { roomId, settings: room.settings });
+        socket.emit('joinedRoom', { roomId, settings: room.settings, roomName: room.metadata.name });
         this.emitRoomUpdate(roomId);
+
+        // If game is active, send current state to the reconnecting player
+        if (room.active) {
+            // Send gameStart to restore board mapping and myBoardId
+            socket.emit('gameStart', {
+                boards: room.boards.map(b => ({
+                    id: b.id,
+                    white: b.whitePlayerId,
+                    black: b.blackPlayerId
+                }))
+            });
+
+            // Send current board state
+            const board = room.boards.find(b => b.whitePlayerId === socket.id || b.blackPlayerId === socket.id);
+            if (board) {
+                this.broadcastGameState(roomId, board); // This sends to specific players, which includes socket.id
+            }
+
+            // Send visualizer state
+            this.broadcastVisualizerUpdate(roomId);
+
+            // Send timer
+            socket.emit('timerUpdate', room.timer);
+        }
+
+        // Broadcast update to reflect new player count in browser
+        this.broadcastRoomsList();
     }
 
     joinTeam(socket, { roomId, team }) { // team: 'white', 'black', 'spectator'
@@ -99,6 +192,26 @@ class GameManager {
             }
             room.players[team].push(socket.id);
         } else {
+            room.players.spectators.push(socket.id);
+        }
+
+        this.emitRoomUpdate(roomId);
+    }
+
+    leaveTeam(socket, { roomId }) {
+        const room = this.rooms.get(roomId);
+        if (!room) return;
+
+        // Remove from teams
+        room.players.white = room.players.white.filter(id => id !== socket.id);
+        room.players.black = room.players.black.filter(id => id !== socket.id);
+
+        // Remove from ready
+        room.ready.white.delete(socket.id);
+        room.ready.black.delete(socket.id);
+
+        // Add to spectators if not already there (optional, but good for tracking)
+        if (!room.players.spectators.includes(socket.id)) {
             room.players.spectators.push(socket.id);
         }
 
@@ -131,8 +244,12 @@ class GameManager {
                 black: Array.from(room.ready.black)
             },
             settings: room.settings,
-            active: room.active
+            active: room.active,
+            usernames: Object.fromEntries(room.usernames),
+            roomName: room.metadata.name
         });
+
+        this.broadcastRoomsList();
     }
 
     startGame(socket, { roomId }) {
@@ -476,12 +593,51 @@ class GameManager {
         return captures;
     }
 
+    leaveRoom(socket) {
+        this.handleDisconnect(socket);
+    }
+
     handleDisconnect(socket) {
-        // Handle disconnect logic if needed
-        // For now, just remove from ready sets
         this.rooms.forEach((room, roomId) => {
-            if (room.ready.white.delete(socket.id) || room.ready.black.delete(socket.id)) {
-                this.emitRoomUpdate(roomId);
+            // Remove from players lists
+            let removed = false;
+            if (room.players.white.includes(socket.id)) {
+                room.players.white = room.players.white.filter(id => id !== socket.id);
+                removed = true;
+            }
+            if (room.players.black.includes(socket.id)) {
+                room.players.black = room.players.black.filter(id => id !== socket.id);
+                removed = true;
+            }
+            if (room.players.spectators.includes(socket.id)) {
+                room.players.spectators = room.players.spectators.filter(id => id !== socket.id);
+                removed = true;
+            }
+
+            // Remove from ready sets
+            room.ready.white.delete(socket.id);
+            room.ready.black.delete(socket.id);
+
+            // Always remove from usernames
+            if (room.usernames.has(socket.id)) {
+                room.usernames.delete(socket.id);
+                // If not in any list, we still want to check for empty room
+                if (!removed) removed = true;
+            }
+
+            if (removed) {
+                // Check if room is empty (no active players or spectators)
+                const totalPlayers = room.players.white.length + room.players.black.length + room.players.spectators.length;
+
+                if (totalPlayers === 0) {
+                    console.log(`Room ${roomId} is empty. Deleting...`);
+                    if (room.interval) clearInterval(room.interval);
+                    this.rooms.delete(roomId);
+                    this.broadcastRoomsList();
+                } else {
+                    this.emitRoomUpdate(roomId);
+                    this.broadcastRoomsList(); // Update player counts for others
+                }
             }
         });
     }

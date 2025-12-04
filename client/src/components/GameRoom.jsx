@@ -17,12 +17,16 @@ const getPieceIcon = (piece, color) => {
     return icons[color]?.[piece.toLowerCase()] || '';
 };
 
-export function GameRoom({ socket, roomId, role, gameState, teammateBoards, timer, boardResult, language = 'en' }) {
+export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBoards, timer, boardResult, language = 'en', onLeave, myBoardId }) {
     // 1. All Hooks at the top
     const [showVisualizer, setShowVisualizer] = useState(true);
     const [micOn, setMicOn] = useState(false);
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState('');
+
+    // Filter out my own board from the visualizer
+    console.log('GameRoom Render:', { role, myBoardId, boards: teammateBoards?.length });
+    const filteredBoards = (teammateBoards || []).filter(b => b && b.boardId !== myBoardId);
 
     // Use the new hook for recording
     useVoiceRecorder(socket, roomId, micOn);
@@ -115,7 +119,13 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
             {/* Header */}
             <header className="bg-slate-800/50 p-2 flex justify-between items-center shrink-0 border-b border-slate-700">
                 <div className="flex items-center gap-4">
-                    <h2 className="text-lg font-bold text-slate-300">{t.room}: {roomId}</h2>
+                    <button
+                        onClick={onLeave}
+                        className="p-2 rounded-lg bg-slate-800 hover:bg-red-900/50 text-slate-400 hover:text-red-400 transition-colors border border-slate-700 hover:border-red-500/50 text-xs font-bold uppercase"
+                    >
+                        {t.leave || "Leave"}
+                    </button>
+                    <h2 className="text-lg font-bold text-slate-300">{t.room}: {roomName || roomId}</h2>
                     <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${role === 'white' ? 'bg-blue-600' : role === 'black' ? 'bg-red-600' : 'bg-slate-600'}`}>
                         {role === 'white' ? t.white : role === 'black' ? t.black : 'Spectator'}
                     </span>
@@ -190,7 +200,7 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
                     </div>
 
                     {/* Bottom: Visualizer (Collapsible) */}
-                    <div className={`transition-all duration-300 ease-in-out border-t border-slate-700 bg-slate-900/95 flex flex-col ${showVisualizer ? 'h-[40vh]' : 'h-8'}`}>
+                    <div className={`transition-all duration-300 ease-in-out border-t border-slate-700 bg-slate-900/95 flex flex-col ${showVisualizer ? 'h-[45vh]' : 'h-8'}`}>
                         <div
                             className="h-8 bg-slate-800/50 flex items-center justify-between px-4 cursor-pointer hover:bg-slate-800"
                             onClick={() => setShowVisualizer(!showVisualizer)}
@@ -202,13 +212,13 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
                         </div>
 
                         {showVisualizer && (
-                            <div className="flex-1 p-2 flex gap-8 overflow-x-auto items-center justify-start">
-                                {teammateBoards.length === 0 ? (
+                            <div className="flex-1 p-2 flex gap-24 overflow-x-auto items-center justify-start flex-nowrap w-full">
+                                {filteredBoards.length === 0 ? (
                                     <div className="h-full aspect-square bg-slate-800/50 rounded border border-slate-700/50 flex items-center justify-center text-slate-600 text-xs">
                                         {t.waitingForTeammates}
                                     </div>
                                 ) : (
-                                    teammateBoards.map((board) => {
+                                    filteredBoards.map((board) => {
                                         const topCaptures = role === 'white' ? board.captures?.b : board.captures?.w;
                                         const bottomCaptures = role === 'white' ? board.captures?.w : board.captures?.b;
 
@@ -225,7 +235,7 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
                                         const bottomColor = role === 'white' ? 'text-blue-400' : 'text-red-400';
 
                                         return (
-                                            <div key={board.boardId} className="h-full flex flex-col gap-1 shrink-0 min-w-[200px]">
+                                            <div key={board.id} className="h-full flex flex-col gap-1 shrink-0 min-w-[300px]">
                                                 {/* Top Name */}
                                                 <div className={`text-center text-xs font-bold ${topColor} mx-4`}>
                                                     {topName}
@@ -233,7 +243,7 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
 
                                                 <div className="flex-1 flex gap-2 min-h-0">
                                                     {/* Main Visualizer Container */}
-                                                    <div className="h-full aspect-square flex flex-col bg-slate-800 rounded border border-slate-700 relative shadow-xl p-2">
+                                                    <div className="h-full flex flex-col bg-slate-800 rounded border border-slate-700 relative shadow-xl p-2 flex-1">
 
                                                         {/* Top: Opponent Info (Captures + Shield + Flame) */}
                                                         <div className="h-8 flex items-center justify-between gap-2 mb-1">
@@ -259,8 +269,10 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
                                                         </div>
 
                                                         {/* Heatmap */}
-                                                        <div className="flex-1 relative">
-                                                            <Heatmap data={board.heatmap} orientation={role} />
+                                                        <div className="flex-1 flex items-center justify-center min-h-0 relative">
+                                                            <div style={{ aspectRatio: '1/1', height: '100%', maxHeight: '100%', width: 'auto' }}>
+                                                                <Heatmap data={board.heatmap} orientation={role} />
+                                                            </div>
                                                         </div>
 
                                                         {/* Bottom: Teammate Info (Captures + Shield + Flame) */}
@@ -301,15 +313,16 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
                                         );
                                     })
                                 )}
-                            </div>
-                        )}
-                    </div>
-                </div>
+                            </div >
+                        )
+                        }
+                    </div >
+                </div >
 
                 {/* Right: Chat & Metrics */}
-                <div className="w-80 border-l border-slate-800 flex flex-col bg-slate-900/50">
+                < div className="w-80 border-l border-slate-800 flex flex-col bg-slate-900/50" >
                     {/* Metrics Panel */}
-                    <div className="p-4 border-b border-slate-800 space-y-4">
+                    < div className="p-4 border-b border-slate-800 space-y-4" >
                         <div>
                             <div className="text-xs text-slate-500 mb-2 font-bold uppercase tracking-wider">{t.opponentCaptures}</div>
                             <div className="flex flex-wrap gap-1 min-h-[2rem]">
@@ -330,10 +343,10 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
                                 ))}
                             </div>
                         </div>
-                    </div>
+                    </div >
 
                     {/* Chat */}
-                    <div className="flex-1 flex flex-col min-h-0">
+                    < div className="flex-1 flex flex-col min-h-0" >
                         <div className="p-3 border-b border-slate-800 font-bold text-slate-400 flex items-center gap-2">
                             <MessageSquare size={16} /> {t.teamChat}
                         </div>
@@ -357,10 +370,10 @@ export function GameRoom({ socket, roomId, role, gameState, teammateBoards, time
                                 onChange={(e) => setInputText(e.target.value)}
                             />
                         </form>
-                    </div>
-                </div>
+                    </div >
+                </div >
 
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }

@@ -4,13 +4,16 @@ import { Lobby } from './components/Lobby';
 import { GameRoom } from './components/GameRoom';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
-import { Globe, Wifi, Mail } from 'lucide-react';
+import { Globe, Wifi, Mail, Lock } from 'lucide-react';
 import { translations } from './translations';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { LandingPage } from './components/LandingPage';
 import { ContactModal } from './components/ContactModal';
+import { AuthModal } from './components/AuthModal';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 function RoyalTeamChess({ socket, language, toggleLanguage }) {
+  const { user, recoveryMode, setRecoveryMode } = useAuth();
   const [room, setRoom] = useState(null);
   const [roomData, setRoomData] = useState({
     players: { white: [], black: [], spectators: [] },
@@ -24,13 +27,22 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
   const [teammateBoards, setTeammateBoards] = useState([]);
   const [timer, setTimer] = useState({ white: 600, black: 600 });
   const [roomIdInput, setRoomIdInput] = useState('');
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState(user?.user_metadata?.username || '');
   const [isCreator, setIsCreator] = useState(false);
   const [boardResult, setBoardResult] = useState(null); // { winner, reason, points }
+  const [showContact, setShowContact] = useState(false);
+
+  useEffect(() => {
+    if (user?.user_metadata?.username) {
+      setUsername(user.user_metadata.username);
+    }
+  }, [user]);
 
   console.log('App Render:', { active: roomData.active, myBoardId, gameState: !!gameState, socketId: socket.id });
 
   const t = translations[language];
+
+  const [roomsList, setRoomsList] = useState([]);
 
   useEffect(() => {
     socket.on('roomCreated', (id) => {
@@ -41,55 +53,64 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
       console.log(`[Socket Incoming] ${event}`, args);
     });
 
-    socket.on('joinedRoom', ({ roomId, settings }) => {
+    socket.on('joinedRoom', ({ roomId, settings, roomName }) => {
       setRoom(roomId);
-      setRoomData(prev => ({ ...prev, settings }));
+      setRoomData(prev => ({ ...prev, settings, name: roomName }));
     });
 
     socket.on('roomUpdate', (data) => {
       setRoomData(data);
     });
 
+    socket.on('roomsList', (rooms) => {
+      console.log('[App] Received roomsList:', rooms);
+      setRoomsList(rooms);
+    });
+
+    // Fetch rooms on load/connect
+    if (socket.connected) {
+      console.log('[App] Requesting initial rooms list');
+      socket.emit('getRooms');
+    }
+
     socket.on('gameStart', (data) => {
-      console.log('Game Start Event:', data);
-      // data: { boards: [{ id, white, black }] }
-      const myBoard = data.boards.find(b => b.white === socket.id || b.black === socket.id);
-      if (myBoard) {
-        console.log('Found my board:', myBoard.id);
-        setMyBoardId(myBoard.id);
-        myBoardIdRef.current = myBoard.id;
-        setBoardResult(null); // Reset result on new game
-      } else {
-        console.error('Could not find my board in gameStart data', socket.id);
+      console.log('Game Started:', data);
+      setRoomData(prev => ({ ...prev, active: true }));
+      setGameState(data);
+
+      // Identify my board
+      const myBoardIndex = data.boards.findIndex(b =>
+        b.white === socket.id || b.black === socket.id
+      );
+
+      if (myBoardIndex !== -1) {
+        setMyBoardId(myBoardIndex);
+        myBoardIdRef.current = myBoardIndex;
       }
+
+      // Identify teammates
+      // ... (logic handled in GameRoom usually, but we can set initial state here)
     });
 
-    socket.on('gameState', (state) => {
-      // Always update if received, as server filters for us.
-      setGameState(prev => ({ ...prev, ...state }));
+    socket.on('gameState', (data) => {
+      setGameState(data);
     });
 
-    socket.on('visualizerUpdate', (boardsData) => {
-      // Filter out my board using ref
-      const others = boardsData.filter(b => b.boardId !== myBoardIdRef.current);
-      setTeammateBoards(others);
+    socket.on('visualizerUpdate', (data) => {
+      // data is an array of board states from the server
+      setTeammateBoards(data);
     });
 
-    socket.on('boardGameOver', (result) => {
-      // result: { boardId, winner, reason, points, scores }
-      if (result.boardId === myBoardIdRef.current) {
-        setBoardResult(result);
-      }
+    socket.on('boardGameOver', ({ boardId, winner, reason, points }) => {
+      // Handled in GameRoom
     });
 
-    socket.on('matchOver', (result) => {
-      // result: { winner, scores, details }
-      setGameState(prev => ({ ...prev, matchResult: result }));
+    socket.on('matchOver', ({ winner, scores, details }) => {
+      setGameState(prev => ({ ...prev, matchResult: { winner, scores, details } }));
     });
 
-    socket.on('timerUpdate', (t) => {
-      console.log('Client Timer Update:', t);
-      setTimer(t);
+    socket.on('timerUpdate', (newTimer) => {
+      setTimer(newTimer);
     });
 
     socket.on('error', (msg) => alert(msg));
@@ -98,6 +119,7 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
       socket.off('roomCreated');
       socket.off('joinedRoom');
       socket.off('roomUpdate');
+      socket.off('roomsList');
       socket.off('gameStart');
       socket.off('gameState');
       socket.off('visualizerUpdate');
@@ -109,6 +131,9 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
   }, [socket]);
 
   const resetGame = () => {
+    if (room) {
+      socket.emit('leaveRoom');
+    }
     setRoom(null);
     setRoomData({
       players: { white: [], black: [], spectators: [] },
@@ -119,31 +144,81 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
     setGameState(null);
     setMyBoardId(null);
     setTeammateBoards([]);
-    setTimer({ white: 600, black: 600 });
-    setIsCreator(false);
     setBoardResult(null);
-
-    // Force reconnect to clean up server state (leave room)
-    if (socket) {
-      socket.disconnect();
-      socket.connect();
-    }
+    setIsCreator(false);
   };
 
-  const createRoom = () => {
+  const createRoom = (roomData) => {
+    console.log('App: createRoom called', roomData);
+    // roomData: { name, isPrivate, password, teamSize, time, language }
     if (!username) {
       alert(t.usernamePlaceholder || "Please enter a username");
       return;
     }
-    console.log('Creating room...', { socketId: socket?.id, connected: socket?.connected });
+
+    if (!socket || !socket.connected) {
+      console.error('Socket not connected', socket);
+      alert('Connection to server lost. Please wait or refresh.');
+      return;
+    }
+
+    console.log('Creating room...', {
+      socketId: socket.id,
+      username,
+      connected: socket.connected,
+      ...roomData,
+      settings: {
+        time: parseInt(roomData.time) * 60,
+        teamSize: parseInt(roomData.teamSize)
+      }
+    });
+
     const id = Math.random().toString(36).substring(7);
+
+    // Optimistically update local state so Lobby shows correct settings immediately
+    setRoomData(prev => ({
+      ...prev,
+      ...roomData,
+      settings: {
+        time: parseInt(roomData.time) * 60,
+        teamSize: parseInt(roomData.teamSize)
+      }
+    }));
+
     setIsCreator(true);
-    socket.emit('createRoom', { roomId: id, username, settings: { time: 600, teamSize: 2 } });
+
+    socket.emit('createRoom', {
+      roomId: id,
+      username,
+      roomName: roomData.name,
+      isPrivate: roomData.isPrivate,
+      password: roomData.password,
+      language: roomData.language,
+      settings: {
+        time: parseInt(roomData.time) * 60, // Convert minutes to seconds
+        teamSize: parseInt(roomData.teamSize)
+      }
+    });
   };
 
-  const joinRoom = () => {
-    if (!roomIdInput || !username) return;
-    socket.emit('joinRoom', { roomId: roomIdInput, username });
+  const joinRoom = (roomId, password = null) => {
+    console.log('App: joinRoom called', { roomId, username, password });
+    if (!roomId) return;
+
+    if (!username) {
+      console.error('App: joinRoom failed - missing username');
+      alert(t.usernamePlaceholder || "Please enter a username first");
+      return;
+    }
+    socket.emit('joinRoom', { roomId, username, password });
+  };
+
+  const handlePlayAsGuest = (guestName) => {
+    setUsername(guestName);
+  };
+
+  const refreshRooms = () => {
+    socket.emit('getRooms');
   };
 
   // Determine my role
@@ -151,91 +226,28 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
   const myRole = roomData.players.white.includes(myId) ? 'white' :
     roomData.players.black.includes(myId) ? 'black' : 'spectator';
 
-  if (!room) {
-    const [showContact, setShowContact] = useState(false);
+  if (recoveryMode) {
     return (
-      <div className="h-screen flex items-center justify-center bg-slate-900 text-white relative">
-        {showContact && <ContactModal onClose={() => setShowContact(false)} language={language} />}
-        {/* Language Toggle */}
-        <div className="absolute top-4 right-4 z-10 flex items-center gap-4">
-          <button
-            onClick={() => setShowContact(true)}
-            className="flex items-center gap-2 px-3 py-2 text-slate-400 hover:text-white transition-colors text-sm font-bold uppercase tracking-wider"
-          >
-            <Mail size={16} />
-            {t.contact}
-          </button>
-          <button
-            onClick={toggleLanguage}
-            className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors text-sm font-bold text-slate-300 hover:text-white"
-          >
-            <Globe size={16} />
-            {language === 'en' ? 'ESPAÑOL' : 'ENGLISH'}
-          </button>
-        </div>
+      <AuthModal
+        onClose={() => setRecoveryMode(false)}
+        language={language}
+        initialView="updatePassword"
+      />
+    );
+  }
 
-
-
-        <div className="glass-panel p-8 max-w-md w-full text-center">
-          <h1 className="text-4xl font-bold mb-8 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-            {t.title}
-          </h1>
-          <div className="space-y-4">
-
-            {/* Username Input - Global for both Create and Join */}
-            <div className="text-left">
-              <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider">
-                {t.usernamePlaceholder || "Username"}
-              </label>
-              <input
-                type="text"
-                placeholder="Player Name"
-                className="input-field w-full"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
-            </div>
-
-            <div className="border-t border-slate-700 my-4"></div>
-
-            <button
-              onClick={createRoom}
-              className={`btn-primary w-full py-3 text-lg ${!username ? 'opacity-50 cursor-not-allowed' : ''}`}
-              disabled={!username}
-            >
-              {t.createRoom}
-            </button>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-700"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-slate-800 text-slate-400">{t.orJoin}</span>
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder={t.roomIdPlaceholder}
-                className="input-field flex-1"
-                value={roomIdInput}
-                onChange={(e) => setRoomIdInput(e.target.value)}
-              />
-              <button
-                onClick={joinRoom}
-                className="btn-primary"
-                disabled={!roomIdInput || !username}
-              >
-                {t.join}
-              </button>
-            </div>
-
-
-          </div>
-        </div>
-      </div>
+  if (!room) {
+    return (
+      <LandingPage
+        onPlayAsGuest={handlePlayAsGuest}
+        language={language}
+        toggleLanguage={toggleLanguage}
+        roomsList={roomsList}
+        onCreateRoom={createRoom}
+        onJoinRoom={joinRoom}
+        onRefreshRooms={refreshRooms}
+        username={username}
+      />
     );
   }
 
@@ -279,11 +291,14 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
       <Lobby
         socket={socket}
         roomId={room}
+        roomName={roomData.name}
         settings={roomData.settings}
         players={roomData.players}
         ready={roomData.ready}
         isCreator={isCreator}
         language={language}
+        onLeave={resetGame}
+        usernames={roomData.usernames}
       />
     );
   }
@@ -293,12 +308,15 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
       <GameRoom
         socket={socket}
         roomId={room}
+        roomName={roomData.name}
         role={myRole}
         gameState={gameState}
         teammateBoards={teammateBoards}
         timer={timer}
         boardResult={boardResult}
         language={language}
+        onLeave={resetGame}
+        myBoardId={myBoardId}
       />
     </ErrorBoundary>
   );
@@ -306,21 +324,18 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
 
 // The main game logic component (formerly App)
 function GameApp({ language, toggleLanguage }) {
-  const [socket, setSocket] = useState(null);
+  const [socket, setSocket] = useState(() => {
+    // Force localhost for local development to ensure we hit the local server
+    const url = import.meta.env.DEV ? 'http://localhost:3000' : (import.meta.env.VITE_SERVER_URL || 'http://localhost:3000');
+    console.log('Initializing socket connection to:', url);
+    return io(url);
+  });
   const [serverUrl, setServerUrl] = useState(import.meta.env.VITE_SERVER_URL || 'http://localhost:3000');
-
+  const [showContact, setShowContact] = useState(false);
 
   const t = translations[language];
 
-  // Auto-connect if VITE_SERVER_URL is present (Production Mode)
-  useEffect(() => {
-    if (import.meta.env.VITE_SERVER_URL) {
-      console.log('Connecting to production server:', import.meta.env.VITE_SERVER_URL);
-      const newSocket = io(import.meta.env.VITE_SERVER_URL);
-      setSocket(newSocket);
-    }
-  }, []);
-
+  // Manual connect fallback (unlikely to be seen if socket init works)
   const connect = (e) => {
     e.preventDefault();
     const newSocket = io(serverUrl);
@@ -328,7 +343,6 @@ function GameApp({ language, toggleLanguage }) {
   };
 
   if (!socket) {
-    const [showContact, setShowContact] = useState(false);
     return (
       <div className="h-screen flex items-center justify-center bg-slate-900 text-white relative">
         {showContact && <ContactModal onClose={() => setShowContact(false)} language={language} />}
@@ -354,36 +368,26 @@ function GameApp({ language, toggleLanguage }) {
             {t.title}
           </h1>
 
-          {/* Only show manual connect form if NOT in production (or if connection failed/not auto-started) */}
-          {!import.meta.env.VITE_SERVER_URL && (
-            <form onSubmit={connect} className="space-y-4">
-              <div className="text-left">
-                <label className="block text-sm font-bold text-slate-400 mb-1">Server URL</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    className="input-field flex-1"
-                    value={serverUrl}
-                    onChange={(e) => setServerUrl(e.target.value)}
-                  />
-                </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  Default: http://localhost:3000 (Local)<br />
-                  LAN: http://192.168.x.x:3000
-                </p>
+          <form onSubmit={connect} className="space-y-4">
+            <div className="text-left">
+              <label className="block text-sm font-bold text-slate-400 mb-1">Server URL</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  className="input-field flex-1"
+                  value={serverUrl}
+                  onChange={(e) => setServerUrl(e.target.value)}
+                />
               </div>
-              <button type="submit" className="btn-primary w-full py-3 text-lg flex items-center justify-center gap-2">
-                <Wifi size={20} /> Connect
-              </button>
-            </form>
-          )}
-
-          {/* Show loading/info if in production and connecting */}
-          {import.meta.env.VITE_SERVER_URL && (
-            <div className="space-y-4">
-              <p className="text-slate-400 animate-pulse">Connecting to server...</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Default: http://localhost:3000 (Local)<br />
+                LAN: http://192.168.x.x:3000
+              </p>
             </div>
-          )}
+            <button type="submit" className="btn-primary w-full py-3 text-lg flex items-center justify-center gap-2">
+              <Wifi size={20} /> Connect
+            </button>
+          </form>
 
           <a href="/" className="mt-6 block text-slate-500 hover:text-slate-300 text-sm underline">
             Back to Home
@@ -398,43 +402,26 @@ function GameApp({ language, toggleLanguage }) {
 
 function App() {
   const [language, setLanguage] = useState('en');
-  const navigate = useNavigate();
 
   const toggleLanguage = () => {
     setLanguage(prev => prev === 'en' ? 'es' : 'en');
   };
 
-  const handlePlayAsGuest = () => {
-    navigate('/play');
-  };
-
-  const handleLogin = () => {
-    alert("Login feature coming soon!");
-  };
-
   return (
-    <Routes>
-      <Route
-        path="/"
-        element={
-          <LandingPage
-            onPlayAsGuest={handlePlayAsGuest}
-            onLogin={handleLogin}
-            language={language}
-            toggleLanguage={toggleLanguage}
-          />
-        }
-      />
-      <Route
-        path="/play"
-        element={
-          <GameApp
-            language={language}
-            toggleLanguage={toggleLanguage}
-          />
-        }
-      />
-    </Routes>
+    <AuthProvider>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <GameApp
+              language={language}
+              toggleLanguage={toggleLanguage}
+            />
+          }
+        />
+        <Route path="*" element={<GameApp language={language} toggleLanguage={toggleLanguage} />} />
+      </Routes>
+    </AuthProvider>
   );
 }
 

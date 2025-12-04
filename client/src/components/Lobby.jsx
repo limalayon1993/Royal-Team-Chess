@@ -4,9 +4,8 @@ import { translations } from '../translations';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import { AudioQueue } from '../utils/AudioQueue';
 
-export function Lobby({ socket, roomId, settings, players, ready, isCreator, language = 'en' }) {
-    const [teamSize, setTeamSize] = useState(settings?.teamSize || 2);
-    const [time, setTime] = useState(settings?.time || 600);
+export function Lobby({ socket, roomId, roomName, settings, players, ready, isCreator, language = 'en', onLeave, usernames = {} }) {
+    console.log('Lobby rendered with settings:', settings);
     const [micOn, setMicOn] = useState(false);
 
     // Use the new hook for recording
@@ -14,6 +13,10 @@ export function Lobby({ socket, roomId, settings, players, ready, isCreator, lan
 
     const audioQueueRef = useRef(new AudioQueue());
     const t = translations[language];
+
+    // Derived state from settings
+    const currentTeamSize = settings?.teamSize || 2;
+    const currentTime = settings?.time || 600;
 
     // Ensure AudioContext is resumed on user interaction
     useEffect(() => {
@@ -36,17 +39,6 @@ export function Lobby({ socket, roomId, settings, players, ready, isCreator, lan
         };
     }, [socket]);
 
-    useEffect(() => {
-        if (settings) {
-            setTeamSize(settings.teamSize || 2);
-            setTime(settings.time || 600);
-        }
-    }, [settings]);
-
-    const updateSettings = () => {
-        socket.emit('updateSettings', { roomId, settings: { time: parseInt(time), teamSize: parseInt(teamSize) } });
-    };
-
     const joinTeam = (team) => {
         socket.emit('joinTeam', { roomId, team });
     };
@@ -67,17 +59,28 @@ export function Lobby({ socket, roomId, settings, players, ready, isCreator, lan
     const inBlack = players.black.includes(myId);
     const isReady = inWhite ? ready.white.includes(myId) : (inBlack ? ready.black.includes(myId) : false);
 
+    // Determine if game can start
+    const allWhiteReady = players.white.length === currentTeamSize && players.white.every(id => ready.white.includes(id));
+    const allBlackReady = players.black.length === currentTeamSize && players.black.every(id => ready.black.includes(id));
+    const canStart = isCreator && allWhiteReady && allBlackReady;
+
     return (
         <div className="h-screen flex items-center justify-center bg-slate-900 text-white p-4">
             <div className="glass-panel w-full max-w-4xl p-8 flex flex-col gap-8">
                 <header className="flex justify-between items-center border-b border-slate-700 pb-4">
                     <div>
                         <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                            {t.lobby}: {roomId}
+                            {t.lobby}: {roomName || roomId}
                         </h1>
                         <p className="text-slate-400">{t.configure}</p>
                     </div>
                     <div className="flex gap-4 items-center">
+                        <button
+                            onClick={onLeave}
+                            className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-red-900/50 text-slate-300 hover:text-red-400 transition-colors border border-slate-700 hover:border-red-500/50"
+                        >
+                            {t.leave || "Leave"}
+                        </button>
                         {/* Voice Chat Toggle */}
                         <button
                             onClick={() => setMicOn(!micOn)}
@@ -90,31 +93,23 @@ export function Lobby({ socket, roomId, settings, players, ready, isCreator, lan
                 </header>
 
                 {/* Settings Section */}
-                <div className="flex gap-8 bg-slate-800/30 p-4 rounded-lg">
-                    <div className="flex flex-col gap-2">
-                        <label className="text-sm text-slate-400 font-bold flex items-center gap-2">
+                <div className="flex gap-8 bg-slate-800/30 p-4 rounded-lg justify-center">
+                    <div className="flex flex-col gap-2 items-center">
+                        <label className="text-sm text-slate-400 font-bold flex items-center gap-2 uppercase tracking-wider">
                             <Clock size={16} /> {t.timePerTeam}
                         </label>
-                        <input
-                            type="number"
-                            value={time}
-                            onChange={(e) => setTime(e.target.value)}
-                            onBlur={updateSettings}
-                            className="input-field w-32"
-                            disabled={false} // Allow anyone to change for MVP, or check isCreator
-                        />
+                        <div className="text-2xl font-bold text-white font-mono">
+                            {Math.floor(currentTime / 60)}m
+                        </div>
                     </div>
-                    <div className="flex flex-col gap-2">
-                        <label className="text-sm text-slate-400 font-bold flex items-center gap-2">
+                    <div className="w-px bg-slate-700 mx-4"></div>
+                    <div className="flex flex-col gap-2 items-center">
+                        <label className="text-sm text-slate-400 font-bold flex items-center gap-2 uppercase tracking-wider">
                             <Users size={16} /> {t.playersPerTeam}
                         </label>
-                        <input
-                            type="number"
-                            value={teamSize}
-                            onChange={(e) => setTeamSize(e.target.value)}
-                            onBlur={updateSettings}
-                            className="input-field w-32"
-                        />
+                        <div className="text-2xl font-bold text-white font-mono">
+                            {currentTeamSize} vs {currentTeamSize}
+                        </div>
                     </div>
                 </div>
 
@@ -123,24 +118,33 @@ export function Lobby({ socket, roomId, settings, players, ready, isCreator, lan
                     <div className="glass-panel p-4 bg-blue-900/10 border-blue-500/30 flex flex-col">
                         <h2 className="text-xl font-bold text-white mb-4 flex justify-between">
                             {t.teamWhite}
-                            <button
-                                onClick={() => joinTeam('white')}
-                                disabled={inWhite || players.white.length >= teamSize}
-                                className="text-xs bg-blue-600 px-2 py-1 rounded hover:bg-blue-500 disabled:opacity-50 text-white"
-                            >
-                                {t.join}
-                            </button>
+                            {inWhite ? (
+                                <button
+                                    onClick={() => socket.emit('leaveTeam', { roomId })}
+                                    className="text-xs bg-red-600 px-2 py-1 rounded hover:bg-red-500 text-white"
+                                >
+                                    {t.leave || "Leave"}
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => joinTeam('white')}
+                                    disabled={inBlack || players.white.length >= currentTeamSize}
+                                    className="text-xs bg-blue-600 px-2 py-1 rounded hover:bg-blue-500 disabled:opacity-50 text-white"
+                                >
+                                    {t.join}
+                                </button>
+                            )}
                         </h2>
                         <div className="space-y-2 flex-1">
                             {players.white.map(id => (
                                 <div key={id} className="flex justify-between items-center bg-slate-800/50 p-2 rounded">
                                     <span className={id === myId ? "font-bold text-white" : "text-slate-400"}>
-                                        {id === myId ? t.you : `${t.player} ${id.substr(0, 4)}`}
+                                        {id === myId ? (usernames[id] ? `${usernames[id]} (${t.you})` : t.you) : (usernames[id] || `${t.player} ${id.substr(0, 4)}`)}
                                     </span>
                                     {ready.white.includes(id) && <span className="text-green-400 text-xs">{t.ready}</span>}
                                 </div>
                             ))}
-                            {Array(Math.max(0, teamSize - players.white.length)).fill(0).map((_, i) => (
+                            {Array(Math.max(0, currentTeamSize - players.white.length)).fill(0).map((_, i) => (
                                 <div key={i} className="border-2 border-dashed border-slate-700 p-2 rounded text-slate-600 text-center text-sm">
                                     {t.emptySlot}
                                 </div>
@@ -152,24 +156,33 @@ export function Lobby({ socket, roomId, settings, players, ready, isCreator, lan
                     <div className="glass-panel p-4 bg-red-900/10 border-red-500/30 flex flex-col">
                         <h2 className="text-xl font-bold text-slate-400 mb-4 flex justify-between">
                             {t.teamBlack}
-                            <button
-                                onClick={() => joinTeam('black')}
-                                disabled={inBlack || players.black.length >= teamSize}
-                                className="text-xs bg-red-600 px-2 py-1 rounded hover:bg-red-500 disabled:opacity-50"
-                            >
-                                {t.join}
-                            </button>
+                            {inBlack ? (
+                                <button
+                                    onClick={() => socket.emit('leaveTeam', { roomId })}
+                                    className="text-xs bg-red-600 px-2 py-1 rounded hover:bg-red-500 text-white"
+                                >
+                                    {t.leave || "Leave"}
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => joinTeam('black')}
+                                    disabled={inWhite || players.black.length >= currentTeamSize}
+                                    className="text-xs bg-red-600 px-2 py-1 rounded hover:bg-red-500 disabled:opacity-50"
+                                >
+                                    {t.join}
+                                </button>
+                            )}
                         </h2>
                         <div className="space-y-2 flex-1">
                             {players.black.map(id => (
                                 <div key={id} className="flex justify-between items-center bg-slate-800/50 p-2 rounded">
                                     <span className={id === myId ? "font-bold text-white" : "text-slate-400"}>
-                                        {id === myId ? t.you : `${t.player} ${id.substr(0, 4)}`}
+                                        {id === myId ? (usernames[id] ? `${usernames[id]} (${t.you})` : t.you) : (usernames[id] || `${t.player} ${id.substr(0, 4)}`)}
                                     </span>
                                     {ready.black.includes(id) && <span className="text-green-400 text-xs">{t.ready}</span>}
                                 </div>
                             ))}
-                            {Array(Math.max(0, teamSize - players.black.length)).fill(0).map((_, i) => (
+                            {Array(Math.max(0, currentTeamSize - players.black.length)).fill(0).map((_, i) => (
                                 <div key={i} className="border-2 border-dashed border-slate-700 p-2 rounded text-slate-600 text-center text-sm">
                                     {t.emptySlot}
                                 </div>
@@ -189,8 +202,8 @@ export function Lobby({ socket, roomId, settings, players, ready, isCreator, lan
 
                     <button
                         onClick={() => socket.emit('startGame', { roomId })}
-                        disabled={!isCreator || players.white.length === 0 || players.black.length === 0 || players.white.some(p => !ready.white.includes(p)) || players.black.some(p => !ready.black.includes(p))}
-                        className={`btn-primary px-8 py-3 text-xl flex items-center gap-2 ${(!isCreator || players.white.length === 0 || players.black.length === 0 || players.white.some(p => !ready.white.includes(p)) || players.black.some(p => !ready.black.includes(p))) ? 'opacity-50 cursor-not-allowed bg-slate-600' : 'bg-yellow-600 hover:bg-yellow-500'}`}
+                        disabled={!canStart}
+                        className={`btn-primary px-8 py-3 text-xl flex items-center gap-2 ${!canStart ? 'opacity-50 cursor-not-allowed bg-slate-600' : 'bg-yellow-600 hover:bg-yellow-500'}`}
                         title={!isCreator ? t.hostOnly : t.allReady}
                     >
                         <Play size={24} /> {isCreator ? t.startGame : t.waitingForHost}

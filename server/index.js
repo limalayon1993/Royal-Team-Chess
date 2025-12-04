@@ -24,6 +24,7 @@ io.on('connection', (socket) => {
     socket.on('createRoom', (data) => gameManager.createRoom(socket, data));
     socket.on('joinRoom', (data) => gameManager.joinRoom(socket, data));
     socket.on('joinTeam', (data) => gameManager.joinTeam(socket, data));
+    socket.on('leaveTeam', (data) => gameManager.leaveTeam(socket, data));
     socket.on('updateSettings', (data) => gameManager.updateSettings(socket, data));
     socket.on('startGame', (data) => gameManager.startGame(socket, data));
     socket.on('playerReady', (data) => gameManager.playerReady(socket, data));
@@ -31,6 +32,8 @@ io.on('connection', (socket) => {
     socket.on('sendChat', (data) => gameManager.handleChat(socket, data));
     socket.on('voiceData', (data) => gameManager.handleVoice(socket, data));
     socket.on('resign', (data) => gameManager.handleResign(socket, data));
+    socket.on('getRooms', () => gameManager.getRooms(socket));
+    socket.on('leaveRoom', () => gameManager.leaveRoom(socket));
     socket.on('disconnect', () => gameManager.handleDisconnect(socket));
 });
 

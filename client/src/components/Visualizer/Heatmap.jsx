@@ -97,7 +97,7 @@ export function Heatmap({ data, orientation = 'white' }) {
                     return (
                         <div
                             key={`${r}-${c}`}
-                            className="flex items-center justify-center transition-colors duration-300"
+                            className="flex items-center justify-center transition-colors duration-300 relative"
                             style={{ backgroundColor: bg, border: border }}
                         >
                             {content}
