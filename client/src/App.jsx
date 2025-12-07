@@ -246,16 +246,18 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
 
   if (!room) {
     return (
-      <LandingPage
-        onPlayAsGuest={handlePlayAsGuest}
-        language={language}
-        toggleLanguage={toggleLanguage}
-        roomsList={roomsList}
-        onCreateRoom={createRoom}
-        onJoinRoom={joinRoom}
-        onRefreshRooms={refreshRooms}
-        username={username}
-      />
+      <ErrorBoundary>
+        <LandingPage
+          onPlayAsGuest={handlePlayAsGuest}
+          language={language}
+          toggleLanguage={toggleLanguage}
+          roomsList={roomsList}
+          onCreateRoom={createRoom}
+          onJoinRoom={joinRoom}
+          onRefreshRooms={refreshRooms}
+          username={username}
+        />
+      </ErrorBoundary>
     );
   }
 

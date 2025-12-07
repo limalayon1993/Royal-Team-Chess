@@ -21,11 +21,13 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
     const [authView, setAuthView] = useState('login');
     const [menuView, setMenuView] = useState('landing'); // landing, main, quick, browser, create
 
-    // Handle navigation state from other pages (e.g. Back from Profile)
+    // Handle navigation state and URL routes
     useEffect(() => {
-        if (location.state?.view) {
+        if (location.pathname === '/main') {
+            setMenuView('main');
+        } else if (location.state?.view) {
             setMenuView(location.state.view);
-            // Clear state to prevent looping (optional, but good practice)
+            // Clear state to prevent looping
             window.history.replaceState({}, document.title);
         }
     }, [location]);
