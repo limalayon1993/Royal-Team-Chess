@@ -52,7 +52,7 @@ export function UserProfile({ language }) {
                     wins: profileData.wins || 0,
                     draws: profileData.draws || 0,
                     losses: profileData.losses || 0,
-                    elo: profileData.elo || 1200
+                    elo: profileData.elo || 300
                 });
             }
 
