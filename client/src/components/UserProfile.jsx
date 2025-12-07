@@ -132,12 +132,6 @@ export function UserProfile({ language }) {
                                         >
                                             Edit Profile
                                         </button>
-                                        <EditProfileModal
-                                            isOpen={showEditModal}
-                                            onClose={() => setShowEditModal(false)}
-                                            profile={profile}
-                                            language={language}
-                                        />
                                     </>
                                 ) : (
                                     <button
@@ -214,6 +208,13 @@ export function UserProfile({ language }) {
                     </div>
                 </div>
             </div>
-        </div>
+
+            <EditProfileModal
+                isOpen={showEditModal}
+                onClose={() => setShowEditModal(false)}
+                profile={profile}
+                language={language}
+            />
+        </div >
     );
 }
