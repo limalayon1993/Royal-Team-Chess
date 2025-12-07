@@ -66,6 +66,7 @@ class GameManager {
     getRooms(socket) {
         const roomsList = [];
         this.rooms.forEach((room, id) => {
+            if (room.finished) return;
             if (!room.metadata.isPrivate) {
                 roomsList.push({
                     id,
@@ -74,7 +75,8 @@ class GameManager {
                     players: room.players.white.length + room.players.black.length,
                     maxPlayers: room.settings.teamSize * 2,
                     settings: room.settings,
-                    active: room.active
+                    active: room.active,
+                    spectators: room.players.spectators.length
                 });
             } else {
                 // Optionally send private rooms with a lock flag, but no details if we want to hide them completely.
@@ -87,6 +89,7 @@ class GameManager {
                     maxPlayers: room.settings.teamSize * 2,
                     settings: room.settings,
                     active: room.active,
+                    spectators: room.players.spectators.length,
                     isPrivate: true
                 });
             }
@@ -98,6 +101,7 @@ class GameManager {
     broadcastRoomsList() {
         const roomsList = [];
         this.rooms.forEach((room, id) => {
+            if (room.finished) return;
             roomsList.push({
                 id,
                 name: room.metadata.name,
@@ -106,6 +110,7 @@ class GameManager {
                 maxPlayers: room.settings.teamSize * 2,
                 settings: room.settings,
                 active: room.active,
+                spectators: room.players.spectators.length,
                 isPrivate: room.metadata.isPrivate
             });
         });
@@ -165,6 +170,7 @@ class GameManager {
 
             // Send visualizer state
             this.broadcastVisualizerUpdate(roomId);
+            this.broadcastSpectatorUpdate(roomId);
 
             // Send timer
             socket.emit('timerUpdate', room.timer);
@@ -210,10 +216,8 @@ class GameManager {
         room.ready.white.delete(socket.id);
         room.ready.black.delete(socket.id);
 
-        // Add to spectators if not already there (optional, but good for tracking)
-        if (!room.players.spectators.includes(socket.id)) {
-            room.players.spectators.push(socket.id);
-        }
+        // Remove from spectators
+        room.players.spectators = room.players.spectators.filter(id => id !== socket.id);
 
         this.emitRoomUpdate(roomId);
     }
@@ -317,6 +321,7 @@ class GameManager {
             this.broadcastGameState(roomId, board);
         });
         this.broadcastVisualizerUpdate(roomId);
+        this.broadcastSpectatorUpdate(roomId);
     }
 
     makeMove(socket, { roomId, move }) {
@@ -345,6 +350,7 @@ class GameManager {
                 // Broadcast update
                 this.broadcastGameState(roomId, board);
                 this.broadcastVisualizerUpdate(roomId);
+                this.broadcastSpectatorUpdate(roomId);
 
                 // Check Game Over
                 if (board.game.isGameOver()) {
@@ -499,6 +505,7 @@ class GameManager {
         if (!room) return;
 
         room.active = false;
+        room.finished = true;
         if (room.interval) clearInterval(room.interval);
 
         // If there's a forced winner (e.g. timeout), process active boards
@@ -579,6 +586,30 @@ class GameManager {
         });
 
         this.io.to(roomId).emit('visualizerUpdate', visualizerData);
+    }
+
+    broadcastSpectatorUpdate(roomId) {
+        const room = this.rooms.get(roomId);
+        if (!room || room.players.spectators.length === 0) return;
+
+        const spectatorData = room.boards.map(b => ({
+            boardId: b.id,
+            fen: b.game.fen(),
+            white: room.usernames.get(b.whitePlayerId) || 'White',
+            black: room.usernames.get(b.blackPlayerId) || 'Black',
+            heatmap: b.heatmap.grid,
+            kingStatus: b.heatmap.kingStatus,
+            burnLevel: {
+                w: b.whiteTimeSpent > (room.boards.reduce((acc, brd) => acc + brd.whiteTimeSpent, 0) / room.boards.length) ? 2 : 0,
+                b: b.blackTimeSpent > (room.boards.reduce((acc, brd) => acc + brd.blackTimeSpent, 0) / room.boards.length) ? 2 : 0
+            },
+            analysis: b.analysis,
+            captures: this.getCaptures(b.game)
+        }));
+
+        room.players.spectators.forEach(spectatorId => {
+            this.io.to(spectatorId).emit('spectatorUpdate', spectatorData);
+        });
     }
 
     getCaptures(game) {

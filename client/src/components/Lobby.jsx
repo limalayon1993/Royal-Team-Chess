@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Users, Clock, Play, Mic, MicOff } from 'lucide-react';
+import { Users, Clock, Play, Mic, MicOff, Eye } from 'lucide-react';
 import { translations } from '../translations';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import { AudioQueue } from '../utils/AudioQueue';
@@ -188,6 +188,38 @@ export function Lobby({ socket, roomId, roomName, settings, players, ready, isCr
                                 </div>
                             ))}
                         </div>
+                    </div>
+                </div>
+
+                {/* Spectators Section */}
+                <div className="glass-panel p-4 bg-slate-800/30 border-slate-700/50 flex flex-col">
+                    <h2 className="text-lg font-bold text-slate-400 mb-2 flex justify-between items-center">
+                        <span className="flex items-center gap-2"><Eye size={18} /> {t.spectators || "Spectators"}</span>
+                        {players.spectators.includes(myId) ? (
+                            <button
+                                onClick={() => socket.emit('leaveTeam', { roomId })}
+                                className="text-xs bg-slate-600 px-2 py-1 rounded hover:bg-slate-500 text-white"
+                            >
+                                {t.leave || "Leave"}
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => joinTeam('spectator')}
+                                disabled={inWhite || inBlack}
+                                className="text-xs bg-slate-700 px-2 py-1 rounded hover:bg-slate-600 text-white disabled:opacity-50"
+                            >
+                                {t.joinSpectator || "Join as Spectator"}
+                            </button>
+                        )}
+                    </h2>
+                    <div className="flex flex-wrap gap-2">
+                        {players.spectators.length > 0 ? players.spectators.map(id => (
+                            <span key={id} className="bg-slate-900/50 px-2 py-1 rounded text-sm text-slate-400 border border-slate-700/50">
+                                {id === myId ? (usernames[id] ? `${usernames[id]} (${t.you})` : t.you) : (usernames[id] || `${t.player} ${id.substr(0, 4)}`)}
+                            </span>
+                        )) : (
+                            <span className="text-slate-600 text-sm italic">{t.noSpectators || "No spectators yet"}</span>
+                        )}
                     </div>
                 </div>
 

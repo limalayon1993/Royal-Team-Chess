@@ -17,7 +17,7 @@ const getPieceIcon = (piece, color) => {
     return icons[color]?.[piece.toLowerCase()] || '';
 };
 
-export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBoards, timer, boardResult, language = 'en', onLeave, myBoardId }) {
+export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBoards, spectatorData, timer, boardResult, language = 'en', onLeave, myBoardId }) {
     // 1. All Hooks at the top
     const [showVisualizer, setShowVisualizer] = useState(true);
     const [micOn, setMicOn] = useState(false);
@@ -154,7 +154,7 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
                     )}
                     <button
                         onClick={() => setMicOn(!micOn)}
-                        className={`p-2 rounded-full transition-colors ${micOn ? 'bg-green-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+                        className={`p-2 rounded-full transition-colors ${micOn ? 'bg-green-600' : 'bg-slate-700 hover:bg-slate-600'} ${!isPlayer ? 'hidden' : ''}`}
                         title={t.voiceChat}
                     >
                         {micOn ? <Mic size={16} /> : <MicOff size={16} />}
@@ -164,216 +164,327 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
 
             {/* Main Content Area */}
             <div className="flex-1 flex overflow-hidden">
+                {role === 'spectator' ? (
+                    <SpectatorView
+                        data={spectatorData}
+                        socket={socket}
+                        roomId={roomId}
+                        t={t}
+                        getPieceIcon={getPieceIcon}
+                    />
+                ) : (
+                    <>
+                        {/* Center: Board & Visualizer */}
+                        <div className="flex-1 flex flex-col min-w-0">
 
-                {/* Center: Board & Visualizer */}
-                <div className="flex-1 flex flex-col min-w-0">
-
-                    {/* Top: The Game Board or Waiting Screen */}
-                    <div className="flex-1 flex items-center justify-center p-4 min-h-0 relative z-10 overflow-hidden max-h-[50vh]">
-                        <div key={showVisualizer ? 'v-open' : 'v-closed'} className="h-full max-w-full aspect-square relative shadow-2xl">
-                            {boardResult ? (
-                                <div className="absolute inset-0 bg-slate-900/90 z-20 flex flex-col items-center justify-center text-center p-8 rounded border border-slate-700">
-                                    <h2 className="text-3xl font-bold mb-4">{t.gameOver}</h2>
-                                    <div className="text-xl mb-2">
-                                        {t.winner}: <span className={boardResult.winner === 'white' ? 'text-blue-400' : 'text-red-400'}>{boardResult.winner === 'white' ? t.white : t.black}</span>
-                                    </div>
-                                    <div className="text-slate-400 mb-8">
-                                        {t.reason}: {boardResult.reason}
-                                    </div>
-                                    <div className="text-sm text-slate-500 animate-pulse">
-                                        {t.waitingForOthers}
-                                    </div>
-                                    <div className="mt-8 p-4 bg-slate-800 rounded text-left w-full max-w-sm">
-                                        <div className="text-xs text-slate-400 uppercase font-bold mb-2">{t.teamStatus}</div>
-                                        <div className="flex justify-between items-center">
-                                            <span>{t.yourContribution}:</span>
-                                            <span className={`font-mono ${boardResult.winner === role ? 'text-green-400' : 'text-slate-500'}`}>
-                                                +{boardResult.winner === role ? boardResult.points : 0} pts
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <ChessBoard socket={socket} roomId={roomId} role={role} fen={gameState?.fen} />
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Bottom: Visualizer (Collapsible) */}
-                    <div className={`transition-all duration-300 ease-in-out border-t border-slate-700 bg-slate-900/95 flex flex-col ${showVisualizer ? 'h-[45vh]' : 'h-8'}`}>
-                        <div
-                            className="h-8 bg-slate-800/50 flex items-center justify-between px-4 cursor-pointer hover:bg-slate-800"
-                            onClick={() => setShowVisualizer(!showVisualizer)}
-                        >
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                                <Activity size={14} /> {t.teamVisualizer}
-                            </span>
-                            {showVisualizer ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-                        </div>
-
-                        {showVisualizer && (
-                            <div className="flex-1 p-2 flex gap-24 overflow-x-auto items-center justify-start flex-nowrap w-full">
-                                {filteredBoards.length === 0 ? (
-                                    <div className="h-full aspect-square bg-slate-800/50 rounded border border-slate-700/50 flex items-center justify-center text-slate-600 text-xs">
-                                        {t.waitingForTeammates}
-                                    </div>
-                                ) : (
-                                    filteredBoards.map((board) => {
-                                        const topCaptures = role === 'white' ? board.captures?.b : board.captures?.w;
-                                        const bottomCaptures = role === 'white' ? board.captures?.w : board.captures?.b;
-
-                                        const topKingStatus = role === 'white' ? board.kingStatus?.b : board.kingStatus?.w;
-                                        const bottomKingStatus = role === 'white' ? board.kingStatus?.w : board.kingStatus?.b;
-
-                                        const topBurn = role === 'white' ? board.burnLevel?.b : board.burnLevel?.w;
-                                        const bottomBurn = role === 'white' ? board.burnLevel?.w : board.burnLevel?.b;
-
-                                        const topName = role === 'white' ? board.players?.black : board.players?.white;
-                                        const bottomName = role === 'white' ? board.players?.white : board.players?.black;
-
-                                        const topColor = role === 'white' ? 'text-red-400' : 'text-blue-400';
-                                        const bottomColor = role === 'white' ? 'text-blue-400' : 'text-red-400';
-
-                                        return (
-                                            <div key={board.id} className="h-full flex flex-col gap-1 shrink-0 min-w-[300px]">
-                                                {/* Top Name */}
-                                                <div className={`text-center text-xs font-bold ${topColor} mx-4`}>
-                                                    {topName}
-                                                </div>
-
-                                                <div className="flex-1 flex gap-2 min-h-0">
-                                                    {/* Main Visualizer Container */}
-                                                    <div className="h-full flex flex-col bg-slate-800 rounded border border-slate-700 relative shadow-xl p-2 flex-1">
-
-                                                        {/* Top: Opponent Info (Captures + Shield + Flame) */}
-                                                        <div className="h-8 flex items-center justify-between gap-2 mb-1">
-                                                            <div className="flex-1 h-full flex items-center justify-center gap-1 bg-slate-900/50 rounded overflow-hidden px-1">
-                                                                {topCaptures?.length > 0 ? topCaptures.map((p, i) => (
-                                                                    <span key={i} className={`text-lg ${role === 'white' ? 'text-white' : 'text-slate-400'}`}>
-                                                                        {getPieceIcon(p, role === 'white' ? 'w' : 'b')}
-                                                                    </span>
-                                                                )) : <span className="text-xs text-slate-600">-</span>}
-                                                            </div>
-                                                            <div className="flex gap-1 h-full">
-                                                                {topKingStatus && (
-                                                                    <div className="h-full aspect-square flex items-center justify-center bg-slate-900/50 rounded border border-slate-700/50">
-                                                                        <Shield status={topKingStatus.status} isCastled={topKingStatus.isCastled} />
-                                                                    </div>
-                                                                )}
-                                                                {topBurn !== undefined && (
-                                                                    <div className="h-full aspect-square flex items-center justify-center bg-slate-900/50 rounded border border-slate-700/50">
-                                                                        <Flame level={topBurn} />
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Heatmap */}
-                                                        <div className="flex-1 flex items-center justify-center min-h-0 relative">
-                                                            <div style={{ aspectRatio: '1/1', height: '100%', maxHeight: '100%', width: 'auto' }}>
-                                                                <Heatmap data={board.heatmap} orientation={role} />
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Bottom: Teammate Info (Captures + Shield + Flame) */}
-                                                        <div className="h-8 flex items-center justify-between gap-2 mt-1">
-                                                            <div className="flex-1 h-full flex items-center justify-center gap-1 bg-slate-900/50 rounded overflow-hidden px-1">
-                                                                {bottomCaptures?.length > 0 ? bottomCaptures.map((p, i) => (
-                                                                    <span key={i} className={`text-lg ${role === 'white' ? 'text-slate-400' : 'text-white'}`}>
-                                                                        {getPieceIcon(p, role === 'white' ? 'b' : 'w')}
-                                                                    </span>
-                                                                )) : <span className="text-xs text-slate-600">-</span>}
-                                                            </div>
-                                                            <div className="flex gap-1 h-full">
-                                                                {bottomKingStatus && (
-                                                                    <div className="h-full aspect-square flex items-center justify-center bg-slate-900/50 rounded border border-slate-700/50">
-                                                                        <Shield status={bottomKingStatus.status} isCastled={bottomKingStatus.isCastled} />
-                                                                    </div>
-                                                                )}
-                                                                {bottomBurn !== undefined && (
-                                                                    <div className="h-full aspect-square flex items-center justify-center bg-slate-900/50 rounded border border-slate-700/50">
-                                                                        <Flame level={bottomBurn} />
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Thermometer */}
-                                                    <div className="w-6 h-full bg-slate-800 rounded-full relative border border-slate-700 overflow-hidden shrink-0">
-                                                        <Thermometer score={board.analysis?.score || 0} orientation={role} />
-                                                    </div>
-                                                </div>
-
-                                                {/* Bottom Name */}
-                                                <div className={`text-center text-xs font-bold ${bottomColor} mx-4`}>
-                                                    {bottomName}
+                            {/* Top: The Game Board or Waiting Screen */}
+                            <div className="flex-1 flex items-center justify-center p-4 min-h-0 relative z-10 overflow-hidden max-h-[50vh]">
+                                <div key={showVisualizer ? 'v-open' : 'v-closed'} className="h-full max-w-full aspect-square relative shadow-2xl">
+                                    {boardResult ? (
+                                        <div className="absolute inset-0 bg-slate-900/90 z-20 flex flex-col items-center justify-center text-center p-8 rounded border border-slate-700">
+                                            <h2 className="text-3xl font-bold mb-4">{t.gameOver}</h2>
+                                            <div className="text-xl mb-2">
+                                                {t.winner}: <span className={boardResult.winner === 'white' ? 'text-blue-400' : 'text-red-400'}>{boardResult.winner === 'white' ? t.white : t.black}</span>
+                                            </div>
+                                            <div className="text-slate-400 mb-8">
+                                                {t.reason}: {boardResult.reason}
+                                            </div>
+                                            <div className="text-sm text-slate-500 animate-pulse">
+                                                {t.waitingForOthers}
+                                            </div>
+                                            <div className="mt-8 p-4 bg-slate-800 rounded text-left w-full max-w-sm">
+                                                <div className="text-xs text-slate-400 uppercase font-bold mb-2">{t.teamStatus}</div>
+                                                <div className="flex justify-between items-center">
+                                                    <span>{t.yourContribution}:</span>
+                                                    <span className={`font-mono ${boardResult.winner === role ? 'text-green-400' : 'text-slate-500'}`}>
+                                                        +{boardResult.winner === role ? boardResult.points : 0} pts
+                                                    </span>
                                                 </div>
                                             </div>
-                                        );
-                                    })
-                                )}
-                            </div >
-                        )
-                        }
-                    </div >
-                </div >
-
-                {/* Right: Chat & Metrics */}
-                < div className="w-80 border-l border-slate-800 flex flex-col bg-slate-900/50" >
-                    {/* Metrics Panel */}
-                    < div className="p-4 border-b border-slate-800 space-y-4" >
-                        <div>
-                            <div className="text-xs text-slate-500 mb-2 font-bold uppercase tracking-wider">{t.opponentCaptures}</div>
-                            <div className="flex flex-wrap gap-1 min-h-[2rem]">
-                                {opponentCaptures?.map((p, i) => (
-                                    <span key={i} className={`text-2xl leading-none ${opponentCaptureColor === 'w' ? 'text-white' : 'text-slate-400'}`}>
-                                        {getPieceIcon(p, opponentCaptureColor)}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                        <div>
-                            <div className="text-xs text-slate-500 mb-2 font-bold uppercase tracking-wider">{t.yourCaptures}</div>
-                            <div className="flex flex-wrap gap-1 min-h-[2rem]">
-                                {yourCaptures?.map((p, i) => (
-                                    <span key={i} className={`text-2xl leading-none ${yourCaptureColor === 'w' ? 'text-white' : 'text-slate-400'}`}>
-                                        {getPieceIcon(p, yourCaptureColor)}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    </div >
-
-                    {/* Chat */}
-                    < div className="flex-1 flex flex-col min-h-0" >
-                        <div className="p-3 border-b border-slate-800 font-bold text-slate-400 flex items-center gap-2">
-                            <MessageSquare size={16} /> {t.teamChat}
-                        </div>
-                        <div className="flex-1 p-2 overflow-y-auto text-sm space-y-2">
-                            {messages.map((msg, i) => (
-                                <div key={i} className={`p-2 rounded ${msg.sender === role ? 'bg-blue-900/30 ml-8' : 'bg-slate-800 mr-8'}`}>
-                                    <div className="text-xs text-slate-500 mb-1">{msg.sender}</div>
-                                    <div className="text-slate-200">{msg.text}</div>
+                                        </div>
+                                    ) : (
+                                        <ChessBoard socket={socket} roomId={roomId} role={role} fen={gameState?.fen} />
+                                    )}
                                 </div>
-                            ))}
-                            <div className="text-slate-500 italic text-center mt-4 text-xs">
-                                {t.voiceChatStatus} {micOn ? <span className="text-green-400">{t.active}</span> : t.muted}
                             </div>
-                        </div>
-                        <form onSubmit={sendMessage} className="p-2 border-t border-slate-800">
-                            <input
-                                type="text"
-                                placeholder={t.typePlaceholder}
-                                className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm outline-none focus:border-blue-500 text-white"
-                                value={inputText}
-                                onChange={(e) => setInputText(e.target.value)}
-                            />
-                        </form>
-                    </div >
-                </div >
 
+                            {/* Bottom: Visualizer (Collapsible) */}
+                            <div className={`transition-all duration-300 ease-in-out border-t border-slate-700 bg-slate-900/95 flex flex-col ${showVisualizer ? 'h-[45vh]' : 'h-8'}`}>
+                                <div
+                                    className="h-8 bg-slate-800/50 flex items-center justify-between px-4 cursor-pointer hover:bg-slate-800"
+                                    onClick={() => setShowVisualizer(!showVisualizer)}
+                                >
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                        <Activity size={14} /> {t.teamVisualizer}
+                                    </span>
+                                    {showVisualizer ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                                </div>
+
+                                {showVisualizer && (
+                                    <div className="flex-1 p-2 flex gap-24 overflow-x-auto items-center justify-start flex-nowrap w-full">
+                                        {filteredBoards.length === 0 ? (
+                                            <div className="h-full aspect-square bg-slate-800/50 rounded border border-slate-700/50 flex items-center justify-center text-slate-600 text-xs">
+                                                {t.waitingForTeammates}
+                                            </div>
+                                        ) : (
+                                            filteredBoards.map((board) => {
+                                                const topCaptures = role === 'white' ? board.captures?.b : board.captures?.w;
+                                                const bottomCaptures = role === 'white' ? board.captures?.w : board.captures?.b;
+
+                                                const topKingStatus = role === 'white' ? board.kingStatus?.b : board.kingStatus?.w;
+                                                const bottomKingStatus = role === 'white' ? board.kingStatus?.w : board.kingStatus?.b;
+
+                                                const topBurn = role === 'white' ? board.burnLevel?.b : board.burnLevel?.w;
+                                                const bottomBurn = role === 'white' ? board.burnLevel?.w : board.burnLevel?.b;
+
+                                                const topName = role === 'white' ? board.players?.black : board.players?.white;
+                                                const bottomName = role === 'white' ? board.players?.white : board.players?.black;
+
+                                                const topColor = role === 'white' ? 'text-red-400' : 'text-blue-400';
+                                                const bottomColor = role === 'white' ? 'text-blue-400' : 'text-red-400';
+
+                                                return (
+                                                    <div key={board.id} className="h-full flex flex-col gap-1 shrink-0 min-w-[300px]">
+                                                        {/* Top Name */}
+                                                        <div className={`text-center text-xs font-bold ${topColor} mx-4`}>
+                                                            {topName}
+                                                        </div>
+
+                                                        <div className="flex-1 flex gap-2 min-h-0">
+                                                            {/* Main Visualizer Container */}
+                                                            <div className="h-full flex flex-col bg-slate-800 rounded border border-slate-700 relative shadow-xl p-2 flex-1">
+
+                                                                {/* Top: Opponent Info (Captures + Shield + Flame) */}
+                                                                <div className="h-8 flex items-center justify-between gap-2 mb-1">
+                                                                    <div className="flex-1 h-full flex items-center justify-center gap-1 bg-slate-900/50 rounded overflow-hidden px-1">
+                                                                        {topCaptures?.length > 0 ? topCaptures.map((p, i) => (
+                                                                            <span key={i} className={`text-lg ${role === 'white' ? 'text-white' : 'text-slate-400'}`}>
+                                                                                {getPieceIcon(p, role === 'white' ? 'w' : 'b')}
+                                                                            </span>
+                                                                        )) : <span className="text-xs text-slate-600">-</span>}
+                                                                    </div>
+                                                                    <div className="flex gap-1 h-full">
+                                                                        {topKingStatus && (
+                                                                            <div className="h-full aspect-square flex items-center justify-center bg-slate-900/50 rounded border border-slate-700/50">
+                                                                                <Shield status={topKingStatus.status} isCastled={topKingStatus.isCastled} />
+                                                                            </div>
+                                                                        )}
+                                                                        {topBurn !== undefined && (
+                                                                            <div className="h-full aspect-square flex items-center justify-center bg-slate-900/50 rounded border border-slate-700/50">
+                                                                                <Flame level={topBurn} />
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Heatmap */}
+                                                                <div className="flex-1 flex items-center justify-center min-h-0 relative">
+                                                                    <div style={{ aspectRatio: '1/1', height: '100%', maxHeight: '100%', width: 'auto' }}>
+                                                                        <Heatmap data={board.heatmap} orientation={role} />
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Bottom: Teammate Info (Captures + Shield + Flame) */}
+                                                                <div className="h-8 flex items-center justify-between gap-2 mt-1">
+                                                                    <div className="flex-1 h-full flex items-center justify-center gap-1 bg-slate-900/50 rounded overflow-hidden px-1">
+                                                                        {bottomCaptures?.length > 0 ? bottomCaptures.map((p, i) => (
+                                                                            <span key={i} className={`text-lg ${role === 'white' ? 'text-slate-400' : 'text-white'}`}>
+                                                                                {getPieceIcon(p, role === 'white' ? 'b' : 'w')}
+                                                                            </span>
+                                                                        )) : <span className="text-xs text-slate-600">-</span>}
+                                                                    </div>
+                                                                    <div className="flex gap-1 h-full">
+                                                                        {bottomKingStatus && (
+                                                                            <div className="h-full aspect-square flex items-center justify-center bg-slate-900/50 rounded border border-slate-700/50">
+                                                                                <Shield status={bottomKingStatus.status} isCastled={bottomKingStatus.isCastled} />
+                                                                            </div>
+                                                                        )}
+                                                                        {bottomBurn !== undefined && (
+                                                                            <div className="h-full aspect-square flex items-center justify-center bg-slate-900/50 rounded border border-slate-700/50">
+                                                                                <Flame level={bottomBurn} />
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Thermometer */}
+                                                            <div className="w-6 h-full bg-slate-800 rounded-full relative border border-slate-700 overflow-hidden shrink-0">
+                                                                <Thermometer score={board.analysis?.score || 0} orientation={role} />
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Bottom Name */}
+                                                        <div className={`text-center text-xs font-bold ${bottomColor} mx-4`}>
+                                                            {bottomName}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                    </div >
+                                )
+                                }
+                            </div >
+                        </div >
+
+                        {/* Right: Chat & Metrics */}
+                        < div className="w-80 border-l border-slate-800 flex flex-col bg-slate-900/50" >
+                            {/* Metrics Panel */}
+                            < div className="p-4 border-b border-slate-800 space-y-4" >
+                                <div>
+                                    <div className="text-xs text-slate-500 mb-2 font-bold uppercase tracking-wider">{t.opponentCaptures}</div>
+                                    <div className="flex flex-wrap gap-1 min-h-[2rem]">
+                                        {opponentCaptures?.map((p, i) => (
+                                            <span key={i} className={`text-2xl leading-none ${opponentCaptureColor === 'w' ? 'text-white' : 'text-slate-400'}`}>
+                                                {getPieceIcon(p, opponentCaptureColor)}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="text-xs text-slate-500 mb-2 font-bold uppercase tracking-wider">{t.yourCaptures}</div>
+                                    <div className="flex flex-wrap gap-1 min-h-[2rem]">
+                                        {yourCaptures?.map((p, i) => (
+                                            <span key={i} className={`text-2xl leading-none ${yourCaptureColor === 'w' ? 'text-white' : 'text-slate-400'}`}>
+                                                {getPieceIcon(p, yourCaptureColor)}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div >
+
+                            {/* Chat */}
+                            < div className="flex-1 flex flex-col min-h-0" >
+                                <div className="p-3 border-b border-slate-800 font-bold text-slate-400 flex items-center gap-2">
+                                    <MessageSquare size={16} /> {t.teamChat}
+                                </div>
+                                <div className="flex-1 p-2 overflow-y-auto text-sm space-y-2">
+                                    {messages.map((msg, i) => (
+                                        <div key={i} className={`p-2 rounded ${msg.sender === role ? 'bg-blue-900/30 ml-8' : 'bg-slate-800 mr-8'}`}>
+                                            <div className="text-xs text-slate-500 mb-1">{msg.sender}</div>
+                                            <div className="text-slate-200">{msg.text}</div>
+                                        </div>
+                                    ))}
+                                    <div className="text-slate-500 italic text-center mt-4 text-xs">
+                                        {t.voiceChatStatus} {micOn ? <span className="text-green-400">{t.active}</span> : t.muted}
+                                    </div>
+                                </div>
+                                <form onSubmit={sendMessage} className="p-2 border-t border-slate-800">
+                                    <input
+                                        type="text"
+                                        placeholder={t.typePlaceholder}
+                                        className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm outline-none focus:border-blue-500 text-white"
+                                        value={inputText}
+                                        onChange={(e) => setInputText(e.target.value)}
+                                    />
+                                </form>
+                            </div >
+                        </div >
+                    </>
+                )}
             </div >
         </div >
+    );
+}
+
+function SpectatorView({ data, socket, roomId, t, getPieceIcon }) {
+    if (!data || data.length === 0) {
+        return (
+            <div className="flex-1 flex items-center justify-center text-slate-500">
+                <div className="text-center">
+                    <Activity size={48} className="mx-auto mb-4 opacity-50" />
+                    <p>{t.waitingForData || "Waiting for game data..."}</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+            {data.map((board) => (
+                <div key={board.boardId} className="bg-slate-800/30 p-6 rounded-3xl border border-slate-700/50 shadow-xl">
+                    <div className="flex items-center justify-between mb-4 px-2">
+                        <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                            <span className="text-blue-400">{board.white}</span>
+                            <span className="text-slate-600">vs</span>
+                            <span className="text-red-400">{board.black}</span>
+                        </h3>
+                        <div className="text-xs font-mono text-slate-500">Board {board.boardId + 1}</div>
+                    </div>
+
+                    <div className="flex flex-col md:flex-row gap-12 h-[380px] justify-center items-center">
+                        {/* Left: Board */}
+                        <div className="w-[380px] h-[380px] bg-slate-900/50 rounded-xl p-2 shadow-inner border border-slate-700/50 flex-none">
+                            <ChessBoard socket={socket} roomId={roomId} role="spectator" fen={board.fen} />
+                        </div>
+
+                        {/* Right: Visualizer */}
+                        <div className="w-[380px] h-full flex gap-4 flex-none">
+                            {/* Main Visualizer Container */}
+                            <div className="flex-1 flex flex-col bg-slate-800 rounded-xl border border-slate-700 relative shadow-xl p-3">
+                                {/* Top: Black Info */}
+                                <div className="h-10 flex items-center justify-between gap-2 mb-2">
+                                    <div className="flex-1 h-full flex items-center justify-center gap-1 bg-slate-900/50 rounded overflow-hidden px-2">
+                                        {board.captures?.w?.length > 0 ? board.captures.w.map((p, i) => (
+                                            <span key={i} className="text-xl text-slate-400">
+                                                {getPieceIcon(p, 'b')}
+                                            </span>
+                                        )) : <span className="text-xs text-slate-600">-</span>}
+                                    </div>
+                                    <div className="flex gap-2 h-full">
+                                        {board.kingStatus?.b && (
+                                            <div className="h-full aspect-square flex items-center justify-center bg-slate-900/50 rounded border border-slate-700/50">
+                                                <Shield status={board.kingStatus.b.status} isCastled={board.kingStatus.b.isCastled} />
+                                            </div>
+                                        )}
+                                        {board.burnLevel?.b !== undefined && (
+                                            <div className="h-full aspect-square flex items-center justify-center bg-slate-900/50 rounded border border-slate-700/50">
+                                                <Flame level={board.burnLevel.b} />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Heatmap */}
+                                <div className="flex-1 flex items-center justify-center min-h-0 relative">
+                                    <div style={{ aspectRatio: '1/1', height: '100%', maxHeight: '100%', width: 'auto' }}>
+                                        <Heatmap data={board.heatmap} orientation="white" />
+                                    </div>
+                                </div>
+
+                                {/* Bottom: White Info */}
+                                <div className="h-10 flex items-center justify-between gap-2 mt-2">
+                                    <div className="flex-1 h-full flex items-center justify-center gap-1 bg-slate-900/50 rounded overflow-hidden px-2">
+                                        {board.captures?.b?.length > 0 ? board.captures.b.map((p, i) => (
+                                            <span key={i} className="text-xl text-white">
+                                                {getPieceIcon(p, 'w')}
+                                            </span>
+                                        )) : <span className="text-xs text-slate-600">-</span>}
+                                    </div>
+                                    <div className="flex gap-2 h-full">
+                                        {board.kingStatus?.w && (
+                                            <div className="h-full aspect-square flex items-center justify-center bg-slate-900/50 rounded border border-slate-700/50">
+                                                <Shield status={board.kingStatus.w.status} isCastled={board.kingStatus.w.isCastled} />
+                                            </div>
+                                        )}
+                                        {board.burnLevel?.w !== undefined && (
+                                            <div className="h-full aspect-square flex items-center justify-center bg-slate-900/50 rounded border border-slate-700/50">
+                                                <Flame level={board.burnLevel.w} />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Thermometer */}
+                            <div className="w-8 h-full bg-slate-800 rounded-full relative border border-slate-700 overflow-hidden shrink-0">
+                                <Thermometer score={board.analysis?.score || 0} orientation="white" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
     );
 }

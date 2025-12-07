@@ -3,6 +3,7 @@ import io from 'socket.io-client';
 import { Lobby } from './components/Lobby';
 import { GameRoom } from './components/GameRoom';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { UserProfile } from './components/UserProfile';
 
 import { Globe, Wifi, Mail, Lock } from 'lucide-react';
 import { translations } from './translations';
@@ -25,6 +26,7 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
   const [myBoardId, setMyBoardId] = useState(null);
   const myBoardIdRef = useRef(null); // Ref to access latest ID in callbacks
   const [teammateBoards, setTeammateBoards] = useState([]);
+  const [spectatorData, setSpectatorData] = useState([]);
   const [timer, setTimer] = useState({ white: 600, black: 600 });
   const [roomIdInput, setRoomIdInput] = useState('');
   const [username, setUsername] = useState(user?.user_metadata?.username || '');
@@ -101,6 +103,10 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
       setTeammateBoards(data);
     });
 
+    socket.on('spectatorUpdate', (data) => {
+      setSpectatorData(data);
+    });
+
     socket.on('boardGameOver', ({ boardId, winner, reason, points }) => {
       // Handled in GameRoom
     });
@@ -123,6 +129,7 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
       socket.off('gameStart');
       socket.off('gameState');
       socket.off('visualizerUpdate');
+      socket.off('spectatorUpdate');
       socket.off('boardGameOver');
       socket.off('matchOver');
       socket.off('timerUpdate');
@@ -144,6 +151,7 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
     setGameState(null);
     setMyBoardId(null);
     setTeammateBoards([]);
+    setSpectatorData([]);
     setBoardResult(null);
     setIsCreator(false);
   };
@@ -312,6 +320,7 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
         role={myRole}
         gameState={gameState}
         teammateBoards={teammateBoards}
+        spectatorData={spectatorData}
         timer={timer}
         boardResult={boardResult}
         language={language}
@@ -419,6 +428,7 @@ function App() {
             />
           }
         />
+        <Route path="/profile/:userId" element={<UserProfile language={language} />} />
         <Route path="*" element={<GameApp language={language} toggleLanguage={toggleLanguage} />} />
       </Routes>
     </AuthProvider>

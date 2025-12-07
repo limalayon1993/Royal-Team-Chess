@@ -1,17 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { Crown, Users, Activity, Shield, Flame, Thermometer, Play, Globe, MessageSquare, Trophy, Target, Zap, Mail, LogOut, User, UserPlus, Search, Lock, Unlock, Plus, RefreshCw, Server, Clock } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
+import { Crown, Users, Activity, Shield, Flame, Thermometer, Play, Globe, MessageSquare, Trophy, Target, Zap, Mail, LogOut, User, UserPlus, Search, Lock, Unlock, Plus, RefreshCw, Server, Clock, Eye, UserCircle, Users2 } from 'lucide-react';
 import { translations } from '../translations';
 import { ContactModal } from './ContactModal';
 import { AuthModal } from './AuthModal';
+import { SocialPanel } from './SocialPanel';
+import { ChatModal } from './ChatModal';
 import { useAuth } from '../context/AuthContext';
 
 export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList, onCreateRoom, onJoinRoom, onRefreshRooms, username }) {
+    const navigate = useNavigate();
+    const location = useLocation();
     const t = translations[language];
     const { user, signOut } = useAuth();
     const [showContact, setShowContact] = useState(false);
+    const [showChat, setShowChat] = useState(false);
+    const [chatTargetUser, setChatTargetUser] = useState(null);
     const [showAuth, setShowAuth] = useState(false);
     const [authView, setAuthView] = useState('login');
     const [menuView, setMenuView] = useState('landing'); // landing, main, quick, browser, create
+
+    // Handle navigation state from other pages (e.g. Back from Profile)
+    useEffect(() => {
+        if (location.state?.view) {
+            setMenuView(location.state.view);
+            // Clear state to prevent looping (optional, but good practice)
+            window.history.replaceState({}, document.title);
+        }
+    }, [location]);
 
     // ... State for Create Room ...
     const [newRoomName, setNewRoomName] = useState('');
@@ -25,6 +42,51 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
     const [browserSearch, setBrowserSearch] = useState('');
     const [selectedRoom, setSelectedRoom] = useState(null);
     const [joinPassword, setJoinPassword] = useState('');
+
+    // ... State for Quick Match ...
+    const [quickTime, setQuickTime] = useState('any');
+    const [quickTeamSize, setQuickTeamSize] = useState('any');
+    const [quickLanguage, setQuickLanguage] = useState('any');
+
+    // ... State for User Search ...
+    const [userSearchQuery, setUserSearchQuery] = useState('');
+    const [userSearchResults, setUserSearchResults] = useState([]);
+    const [showUserDropdown, setShowUserDropdown] = useState(false);
+
+    const handleUserSearch = async (query) => {
+        setUserSearchQuery(query);
+        if (query.length < 2) {
+            setUserSearchResults([]);
+            setShowUserDropdown(false);
+            return;
+        }
+
+        setShowUserDropdown(true);
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('id, username, avatar_url, team')
+                .ilike('username', `${query}%`) // Starts with query, case insensitive
+                .limit(5);
+
+            if (error) throw error;
+
+            let results = data || [];
+
+            // DEMO: Always include mock if query matches 'ant'
+            if (query.toLowerCase().includes('ant')) {
+                results.push({ id: 'mock-1', username: 'Antonio', team: 'Devs', avatar_url: null });
+            }
+
+            setUserSearchResults(results);
+        } catch (error) {
+            console.error('Search error:', error);
+            // Fallback for demo if no DB
+            if (query.toLowerCase().includes('ant')) {
+                setUserSearchResults([{ id: 'mock-1', username: 'Antonio', team: 'Devs' }]);
+            }
+        }
+    };
 
     useEffect(() => {
         if (menuView === 'quick' || menuView === 'browser') {
@@ -41,6 +103,7 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
     const handlePlayNow = () => {
         if (user || username) {
             setMenuView('main');
+            window.history.pushState({}, '', '/main');
         } else {
             openAuth('options');
         }
@@ -80,6 +143,182 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
 
     // ... Render Functions ...
     const renderMainMenu = () => (
+        <div className="max-w-6xl mx-auto w-full px-6 animate-fade-in flex flex-col items-center min-h-[600px] pt-12">
+
+            {/* Search Bar */}
+            <div className="w-full max-w-2xl mb-12 relative z-50">
+                <div className="relative group">
+                    <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-400 transition-colors" size={24} />
+                    <div className="absolute right-2 top-2 bottom-2 flex bg-slate-800 rounded-lg p-1 border border-slate-700">
+                        <select className="bg-transparent text-white text-sm font-bold px-4 focus:outline-none cursor-pointer hover:text-blue-400 transition-colors">
+                            <option value="user">{t.player || "Player"}</option>
+                            <option value="team">{t.team || "Team"}</option>
+                        </select>
+                    </div>
+                    <input
+                        type="text"
+                        value={userSearchQuery}
+                        onChange={(e) => handleUserSearch(e.target.value)}
+                        onFocus={() => userSearchQuery.length >= 2 && setShowUserDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowUserDropdown(false), 200)} // Delay to allow click
+                        className="w-full bg-slate-900/80 border border-slate-700/50 rounded-2xl py-6 pl-16 pr-32 text-xl text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 transition-all shadow-xl"
+                        placeholder={t.searchPlaceholder || "Search players..."}
+                    />
+
+                    {/* Search Dropdown */}
+                    {showUserDropdown && userSearchResults.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up">
+                            {userSearchResults.map(result => (
+                                <button
+                                    key={result.id}
+                                    onClick={() => navigate(`/profile/${result.id}`)}
+                                    className="w-full flex items-center gap-4 p-4 hover:bg-slate-800 transition-colors text-left border-b border-slate-800 last:border-0"
+                                >
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 p-0.5">
+                                        <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center overflow-hidden">
+                                            {result.avatar_url ? (
+                                                <img src={result.avatar_url} alt={result.username} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <span className="text-xs font-bold text-white">{result.username.substring(0, 2).toUpperCase()}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="font-bold text-white text-lg">{result.username}</div>
+                                        <div className="text-xs text-blue-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                                            <Shield size={10} /> {result.team || "Free Agent"}
+                                        </div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Main Menu Layout */}
+            {menuView === 'main' && (
+                <div className="w-full max-w-[1600px] mx-auto px-6 flex gap-8">
+
+                    {/* Main Cards Grid - Takes up remaining space */}
+                    <div className="flex-1 grid md:grid-cols-2 lg:grid-cols-3 gap-8 transition-all duration-500">
+                        {/* Play Button */}
+                        <button
+                            onClick={() => setMenuView('play_modes')}
+                            className="group relative h-[400px] rounded-3xl overflow-hidden transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-blue-900/50 border border-slate-800 hover:border-blue-500/50 text-left bg-slate-900"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-slate-900 to-slate-900 z-10" />
+                            <div className="absolute inset-0 bg-grid-white/[0.02] bg-[length:32px_32px] z-0" />
+                            <div className="absolute bottom-0 left-0 p-8 z-20 w-full">
+                                <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-blue-900/50 group-hover:scale-110 transition-transform duration-300">
+                                    <Play size={40} className="text-white ml-1" fill="currentColor" />
+                                </div>
+                                <h3 className="text-4xl font-black text-white mb-2">{t.play}</h3>
+                                <p className="text-blue-200 text-sm font-medium leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity">
+                                    {t.quickMatchDesc || "Jump straight into the action."}
+                                </p>
+                            </div>
+                        </button>
+
+                        {/* Profile Button */}
+                        <button
+                            onClick={() => {
+                                if (user) {
+                                    navigate(`/profile/${user.id}`);
+                                } else {
+                                    openAuth('login');
+                                }
+                            }}
+                            className="group relative h-[400px] rounded-3xl overflow-hidden transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-purple-900/50 border border-slate-800 hover:border-purple-500/50 text-left bg-slate-900"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-slate-900 to-slate-900 z-10" />
+                            <div className="absolute bottom-0 left-0 p-8 z-20 w-full">
+                                <div className="w-16 h-16 bg-purple-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-purple-900/50 group-hover:scale-110 transition-transform duration-300">
+                                    <UserCircle size={40} className="text-white" />
+                                </div>
+                                <h3 className="text-4xl font-black text-white mb-2">{t.profile || "Profile"}</h3>
+                                <p className="text-purple-200 text-sm font-medium leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity">
+                                    {t.profileSubtitle || "View your stats and history."}
+                                </p>
+                            </div>
+                        </button>
+
+                        {/* Teams Button */}
+                        <button
+                            onClick={() => alert('Teams page coming soon!')} // Placeholder
+                            className="group relative h-[400px] rounded-3xl overflow-hidden transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-900/50 border border-slate-800 hover:border-emerald-500/50 text-left bg-slate-900"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/20 via-slate-900 to-slate-900 z-10" />
+                            <div className="absolute bottom-0 left-0 p-8 z-20 w-full">
+                                <div className="w-16 h-16 bg-emerald-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-emerald-900/50 group-hover:scale-110 transition-transform duration-300">
+                                    <Users2 size={40} className="text-white" />
+                                </div>
+                                <h3 className="text-4xl font-black text-white mb-2">{t.teams || "Teams"}</h3>
+                                <p className="text-emerald-200 text-sm font-medium leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity">
+                                    {t.teamsSubtitle || "Manage your roster."}
+                                </p>
+                            </div>
+                        </button>
+
+                        {/* Messages Button */}
+                        <button
+                            onClick={() => setShowChat(true)}
+                            className="group relative h-[400px] rounded-3xl overflow-hidden transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-cyan-900/50 border border-slate-800 hover:border-cyan-500/50 text-left bg-slate-900"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-br from-cyan-900/20 via-slate-900 to-slate-900 z-10" />
+                            <div className="absolute bottom-0 left-0 p-8 z-20 w-full">
+                                <div className="w-16 h-16 bg-cyan-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-cyan-900/50 group-hover:scale-110 transition-transform duration-300 relative">
+                                    <MessageSquare size={40} className="text-white" />
+                                    {/* Unread Badge (Mock) */}
+                                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full border-4 border-slate-900 flex items-center justify-center">
+                                        <span className="text-[10px] font-bold text-white">2</span>
+                                    </div>
+                                </div>
+                                <h3 className="text-4xl font-black text-white mb-2">{t.messages || "Messages"}</h3>
+                                <p className="text-cyan-200 text-sm font-medium leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity">
+                                    {t.messagesSubtitle || "Chat with friends and team."}
+                                </p>
+                            </div>
+                        </button>
+                    </div>
+
+                    {/* Social Panel - Right Side */}
+                    {/* Social Panel - Right Side */}
+                    <SocialPanel
+                        language={language}
+                        onOpenChat={(targetUser) => {
+                            setChatTargetUser(targetUser);
+                            setShowChat(true);
+                        }}
+                    />
+                </div>
+            )}
+            {/* End Main Menu Grid */}
+
+            <ChatModal
+                isOpen={showChat}
+                onClose={() => {
+                    setShowChat(false);
+                    setChatTargetUser(null);
+                }}
+                language={language}
+                currentUser={user}
+                initialChatUser={chatTargetUser}
+            />
+
+            <button
+                onClick={() => {
+                    setMenuView('landing');
+                    window.history.pushState({}, '', '/');
+                }}
+                className="mt-16 flex items-center gap-3 text-slate-500 hover:text-white transition-all hover:scale-105 px-6 py-3 rounded-full hover:bg-slate-800"
+            >
+                <LogOut size={20} /> <span className="font-bold tracking-wide">{t.back || "LOGOUT"}</span>
+            </button>
+        </div >
+    );
+
+    const renderPlayMenu = () => (
         <div className="max-w-6xl mx-auto w-full px-6 animate-fade-in flex flex-col items-center justify-center min-h-[600px]">
             <div className="text-center mb-12">
                 <h2 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">
@@ -153,7 +392,7 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
             </div>
 
             <button
-                onClick={() => setMenuView('landing')}
+                onClick={() => setMenuView('main')}
                 className="mt-16 flex items-center gap-3 text-slate-500 hover:text-white transition-all hover:scale-105 px-6 py-3 rounded-full hover:bg-slate-800"
             >
                 <LogOut size={20} /> <span className="font-bold tracking-wide">{t.back || "RETURN TO HOME"}</span>
@@ -338,14 +577,17 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                                 <div>
                                     <h3 className="font-bold text-xl text-white mb-1 group-hover:text-purple-300 transition-colors">{room.name}</h3>
                                     <div className="flex items-center gap-4 text-sm text-slate-400">
-                                        <span className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded-lg border border-slate-700/50">
+                                        <span className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded-lg border border-slate-700/50" title={t.players || "Players"}>
                                             <Users size={14} className="text-blue-400" /> {room.players}/{room.maxPlayers}
                                         </span>
-                                        <span className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded-lg border border-slate-700/50">
+                                        <span className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded-lg border border-slate-700/50" title={t.spectators || "Spectators"}>
+                                            <Eye size={14} className="text-purple-400" /> {room.spectators || 0}
+                                        </span>
+                                        <span className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded-lg border border-slate-700/50" title={t.timePerTeam || "Time"}>
                                             <Clock size={14} className="text-orange-400" /> {Math.floor(room.settings?.time / 60)}m
                                         </span>
-                                        <span className="text-xs px-2 py-1 bg-slate-900/50 rounded-lg border border-slate-700/50 font-mono opacity-50">
-                                            ID: {room.id}
+                                        <span className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded-lg border border-slate-700/50 uppercase font-bold text-xs" title={t.language || "Language"}>
+                                            <Globe size={14} className="text-green-400" /> {room.language || 'EN'}
                                         </span>
                                     </div>
                                 </div>
@@ -428,11 +670,19 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                     <div>
                         <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.timeControl || "Time"}</label>
                         <div className="relative">
-                            <select className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:border-blue-500 cursor-pointer">
+                            <select
+                                value={quickTime}
+                                onChange={(e) => setQuickTime(e.target.value)}
+                                className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:border-blue-500 cursor-pointer"
+                            >
                                 <option value="any">Any Time</option>
                                 <option value="5">5 Minutes</option>
                                 <option value="10">10 Minutes</option>
                                 <option value="20">20 Minutes</option>
+                                <option value="30">30 Minutes</option>
+                                <option value="40">40 Minutes</option>
+                                <option value="50">50 Minutes</option>
+                                <option value="60">60 Minutes</option>
                             </select>
                             <Activity className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
                         </div>
@@ -442,9 +692,14 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                     <div>
                         <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.teamSize || "Team Size"}</label>
                         <div className="relative">
-                            <select className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:border-blue-500 cursor-pointer">
+                            <select
+                                value={quickTeamSize}
+                                onChange={(e) => setQuickTeamSize(e.target.value)}
+                                className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:border-blue-500 cursor-pointer"
+                            >
                                 <option value="any">Any Size</option>
                                 <option value="2">2 vs 2</option>
+                                <option value="3">3 vs 3</option>
                                 <option value="4">4 vs 4</option>
                             </select>
                             <Users className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
@@ -455,7 +710,11 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                     <div>
                         <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.language || "Language"}</label>
                         <div className="relative">
-                            <select className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:border-blue-500 cursor-pointer">
+                            <select
+                                value={quickLanguage}
+                                onChange={(e) => setQuickLanguage(e.target.value)}
+                                className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:border-blue-500 cursor-pointer"
+                            >
                                 <option value="any">Any Language</option>
                                 <option value="en">English</option>
                                 <option value="es">Español</option>
@@ -475,14 +734,38 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                 </button>
                 <button
                     onClick={() => {
-                        // Simple Quick Match: Find first public room with space
-                        const availableRooms = roomsList.filter(r => !r.isPrivate && r.players < r.maxPlayers);
+                        // Filter rooms based on preferences
+                        const availableRooms = roomsList.filter(r => {
+                            if (r.isPrivate) return false;
+                            if (r.players >= r.maxPlayers) return false;
+
+                            // Time Filter
+                            if (quickTime !== 'any') {
+                                const requiredSeconds = parseInt(quickTime) * 60;
+                                if (r.settings.time !== requiredSeconds) return false;
+                            }
+
+                            // Team Size Filter
+                            if (quickTeamSize !== 'any') {
+                                // Convert team size (e.g. 2) to max players (e.g. 4)
+                                const requiredMax = parseInt(quickTeamSize) * 2;
+                                if (r.maxPlayers !== requiredMax) return false;
+                            }
+
+                            // Language Filter
+                            if (quickLanguage !== 'any') {
+                                if (r.language !== quickLanguage) return false;
+                            }
+
+                            return true;
+                        });
+
                         if (availableRooms.length > 0) {
-                            // Pick random
+                            // Pick random from matches
                             const randomRoom = availableRooms[Math.floor(Math.random() * availableRooms.length)];
                             onJoinRoom(randomRoom.id);
                         } else {
-                            alert(t.noRooms || "No suitable rooms found. Try creating one!");
+                            alert(t.noRoomsFound || "No rooms found matching criteria.");
                         }
                     }}
                     className="flex-[2] py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-blue-900/30 flex items-center justify-center gap-2"
@@ -789,6 +1072,7 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                 {/* MENU VIEWS */}
                 <div className="relative z-10 flex-1 flex flex-col justify-center min-h-[600px]">
                     {menuView === 'main' && renderMainMenu()}
+                    {menuView === 'play_modes' && renderPlayMenu()}
                     {menuView === 'create' && renderCreateServer()}
                     {menuView === 'browser' && renderBrowser()}
                     {menuView === 'quick' && renderQuickMatch()}
