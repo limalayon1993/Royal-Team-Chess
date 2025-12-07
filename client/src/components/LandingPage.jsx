@@ -19,7 +19,8 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
     const [chatTargetUser, setChatTargetUser] = useState(null);
     const [showAuth, setShowAuth] = useState(false);
     const [authView, setAuthView] = useState('login');
-    const [menuView, setMenuView] = useState('landing'); // landing, main, quick, browser, create
+    const [menuView, setMenuView] = useState('landing');
+    const [unreadCount, setUnreadCount] = useState(0); // Added missing state
 
     // Handle navigation state and URL routes
     useEffect(() => {
@@ -44,6 +45,39 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
     const [browserSearch, setBrowserSearch] = useState('');
     const [selectedRoom, setSelectedRoom] = useState(null);
     const [joinPassword, setJoinPassword] = useState('');
+
+    // Fetch unread messages count
+    useEffect(() => {
+        if (!user) return;
+
+        const fetchUnread = async () => {
+            const { count, error } = await supabase
+                .from('messages')
+                .select('*', { count: 'exact', head: true })
+                .eq('receiver_id', user.id)
+                .eq('is_read', false);
+
+            if (!error) {
+                setUnreadCount(count || 0);
+            }
+        };
+
+        fetchUnread();
+
+        // Subscribe to new messages
+        const channel = supabase
+            .channel('badge-updates')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `receiver_id=eq.${user.id}` }, () => {
+                fetchUnread();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [user]);
+
+    // ... State for Quick Match ...
 
     // ... State for Quick Match ...
     const [quickTime, setQuickTime] = useState('any');
