@@ -269,10 +269,12 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                             <div className="absolute bottom-0 left-0 p-8 z-20 w-full">
                                 <div className="w-16 h-16 bg-cyan-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-cyan-900/50 group-hover:scale-110 transition-transform duration-300 relative">
                                     <MessageSquare size={40} className="text-white" />
-                                    {/* Unread Badge (Mock) */}
-                                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full border-4 border-slate-900 flex items-center justify-center">
-                                        <span className="text-[10px] font-bold text-white">2</span>
-                                    </div>
+                                    {/* Unread Badge */}
+                                    {unreadCount > 0 && (
+                                        <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full border-4 border-slate-900 flex items-center justify-center animate-pulse">
+                                            <span className="text-[10px] font-bold text-white">{unreadCount}</span>
+                                        </div>
+                                    )}
                                 </div>
                                 <h3 className="text-4xl font-black text-white mb-2">{t.messages || "Messages"}</h3>
                                 <p className="text-cyan-200 text-sm font-medium leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity">

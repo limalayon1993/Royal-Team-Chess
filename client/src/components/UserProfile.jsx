@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { User, Shield, Trophy, MessageSquare, ArrowLeft, Star, Activity, Medal, Users } from 'lucide-react';
+import { User, Shield, Trophy, MessageSquare, ArrowLeft, Activity, Users } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { translations } from '../translations';
+import { EditProfileModal } from './EditProfileModal';
 
 export function UserProfile({ language }) {
     const { userId } = useParams();
@@ -11,6 +12,7 @@ export function UserProfile({ language }) {
     const { user: currentUser } = useAuth();
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [showEditModal, setShowEditModal] = useState(false);
     const [stats, setStats] = useState({
         points: 0,
         matchesPlayed: 0,
@@ -30,21 +32,10 @@ export function UserProfile({ language }) {
         try {
             setLoading(true);
 
-            // DEMO: Handle mock ID for testing search
+            // DEMO: Handle mock ID for testing
             if (userId === 'mock-1') {
                 setProfile({
-                    id: 'mock-1',
-                    username: 'Antonio',
-                    avatar_url: null,
-                    team: 'Devs',
-                    created_at: new Date().toISOString()
-                });
-                setStats({
-                    points: 1250,
-                    matchesPlayed: 42,
-                    wins: 28,
-                    draws: 5,
-                    losses: 9
+                    id: 'mock-1', username: 'Antonio', avatar_url: null, team: 'Devs', created_at: new Date().toISOString()
                 });
                 setLoading(false);
                 return;
@@ -59,13 +50,7 @@ export function UserProfile({ language }) {
 
             if (profileError) {
                 console.error('Error fetching profile:', profileError);
-                // Fallback / Mock for demo if table doesn't exist yet
-                setProfile({
-                    username: 'Unknown Warrior',
-                    avatar_url: null,
-                    team: 'Ronin',
-                    created_at: new Date().toISOString()
-                });
+                setProfile({ username: 'Unknown Warrior', avatar_url: null, team: 'Ronin' });
             } else {
                 setProfile(profileData);
             }
@@ -148,12 +133,23 @@ export function UserProfile({ language }) {
                             <div className="flex gap-4 justify-center md:justify-start">
                                 {/* Conditional Button Logic */}
                                 {isOwnProfile ? (
-                                    <button className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold transition-all hover:scale-105 border border-slate-600 flex items-center gap-2 cursor-pointer">
-                                        Edit Profile
-                                    </button>
+                                    <>
+                                        <button
+                                            onClick={() => setShowEditModal(true)}
+                                            className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold transition-all hover:scale-105 border border-slate-600 flex items-center gap-2 cursor-pointer"
+                                        >
+                                            Edit Profile
+                                        </button>
+                                        <EditProfileModal
+                                            isOpen={showEditModal}
+                                            onClose={() => setShowEditModal(false)}
+                                            profile={profile}
+                                            language={language}
+                                        />
+                                    </>
                                 ) : (
                                     <button
-                                        onClick={() => alert("Messaging coming soon!")}
+                                        onClick={() => navigate('/', { state: { view: 'main' } })}
                                         className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all hover:scale-105 shadow-lg shadow-blue-900/30 flex items-center gap-2"
                                     >
                                         <MessageSquare size={18} /> {t.sendMessage || "Send Message"}
