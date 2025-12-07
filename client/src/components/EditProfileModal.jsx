@@ -78,8 +78,8 @@ export function EditProfileModal({ isOpen, onClose, profile, language }) {
                             <input
                                 type="text"
                                 value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
+                                readOnly
+                                className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-2 text-slate-400 cursor-not-allowed focus:outline-none"
                             />
                         </div>
                         <div>

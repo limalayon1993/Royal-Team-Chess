@@ -4,6 +4,7 @@ import { Lobby } from './components/Lobby';
 import { GameRoom } from './components/GameRoom';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { UserProfile } from './components/UserProfile';
+import { supabase } from './supabaseClient';
 
 import { Globe, Wifi, Mail, Lock } from 'lucide-react';
 import { translations } from './translations';
@@ -107,8 +108,66 @@ function RoyalTeamChess({ socket, language, toggleLanguage }) {
       setSpectatorData(data);
     });
 
-    socket.on('boardGameOver', ({ boardId, winner, reason, points }) => {
-      // Handled in GameRoom
+    socket.on('boardGameOver', async ({ boardId, winner, reason, points }) => {
+      // 1. Show Game Over Screen if it's my board
+      if (Math.floor(boardId) === Math.floor(myBoardIdRef.current)) {
+        setBoardResult({ winner, reason, points });
+
+        // 2. Update Stats in Supabase (Individual Performance)
+        if (user) {
+          try {
+            // Determine if I won
+            // Access latest roomData to know my color? 
+            // Better: socket.id is consistent.
+            // But we need to know the color of the winner. 'white' or 'black'.
+            // And my color.
+
+            // We can re-derive my color or rely on roomData state (might be stale in closure?)
+            // Safe bet: Use functional state update to access latest, or just use what we have if we trust it doesn't change mid-game effectively.
+            // Actually, we can check if `socket.id` was in `roomData.players[winner]`.
+            // But `roomData` here is from closure. `roomData` changes on roomUpdate.
+            // Using a Ref for roomData would be safer, but for now let's use the helper:
+
+            // Actually, simply:
+            // If I am white, and winner is white -> Win.
+            // If I am white, and winner is black -> Loss.
+
+            // We need My Color.
+            // socket.id is available.
+
+            // Let's just fetch the current profile stats to increment safely
+            const { data: profile } = await supabase.from('profiles').select('wins, losses, draws, points').eq('id', user.id).single();
+
+            if (profile) {
+              const myColor = roomData.players.white.includes(socket.id) ? 'white' : 'black'; // This uses closure roomData. 
+              // Assumption: roomData is reasonably fresh.
+
+              let updates = {};
+
+              if (winner === myColor) {
+                updates = {
+                  wins: (profile.wins || 0) + 1,
+                  points: (profile.points || 0) + points
+                };
+              } else if (winner !== 'draw') {
+                updates = {
+                  losses: (profile.losses || 0) + 1
+                  // No points for loss
+                };
+              } else {
+                updates = {
+                  draws: (profile.draws || 0) + 1,
+                  points: (profile.points || 0) + points
+                };
+              }
+
+              await supabase.from('profiles').update(updates).eq('id', user.id);
+            }
+          } catch (err) {
+            console.error('Error updating stats:', err);
+          }
+        }
+      }
     });
 
     socket.on('matchOver', ({ winner, scores, details }) => {

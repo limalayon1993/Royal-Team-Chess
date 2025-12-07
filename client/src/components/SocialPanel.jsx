@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { User, Shield, MessageSquare, UserPlus } from 'lucide-react';
-import { supabase } from '../supabaseClient';
+import { useAuth } from '../context/AuthContext';
 
 export function SocialPanel({ language, onOpenChat }) {
     const navigate = useNavigate();
+    const { user: currentUser } = useAuth();
     const [activeTab, setActiveTab] = useState('friends'); // 'friends' or 'team'
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -20,6 +18,7 @@ export function SocialPanel({ language, onOpenChat }) {
                 const { data, error } = await supabase
                     .from('profiles')
                     .select('*')
+                    .neq('id', currentUser?.id)
                     .limit(20);
 
                 if (data) {
@@ -48,8 +47,8 @@ export function SocialPanel({ language, onOpenChat }) {
                     <button
                         onClick={() => setActiveTab('friends')}
                         className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'friends'
-                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
-                                : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
+                            : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
                             }`}
                     >
                         <User size={16} /> Players
@@ -57,8 +56,8 @@ export function SocialPanel({ language, onOpenChat }) {
                     <button
                         onClick={() => setActiveTab('team')}
                         className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'team'
-                                ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/50'
-                                : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+                            ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/50'
+                            : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
                             }`}
                     >
                         <Shield size={16} /> Team
