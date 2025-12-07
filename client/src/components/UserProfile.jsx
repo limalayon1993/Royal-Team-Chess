@@ -32,16 +32,7 @@ export function UserProfile({ language }) {
         try {
             setLoading(true);
 
-            // DEMO: Handle mock ID for testing
-            if (userId === 'mock-1') {
-                setProfile({
-                    id: 'mock-1', username: 'Antonio', avatar_url: null, team: 'Devs', created_at: new Date().toISOString()
-                });
-                setLoading(false);
-                return;
-            }
-
-            // 1. Fetch Profile Data
+            // 1. Fetch Profile Data (including new columns if they exist)
             const { data: profileData, error: profileError } = await supabase
                 .from('profiles')
                 .select('*')
@@ -50,19 +41,20 @@ export function UserProfile({ language }) {
 
             if (profileError) {
                 console.error('Error fetching profile:', profileError);
-                setProfile({ username: 'Unknown Warrior', avatar_url: null, team: 'Ronin' });
+                // Only mock if ERROR (e.g. user offline/table missing), but try to be graceful
+                setProfile(null);
             } else {
                 setProfile(profileData);
+                // 2. Set Stats from fetched profile data
+                setStats({
+                    points: profileData.points || 0,
+                    matchesPlayed: (profileData.wins || 0) + (profileData.losses || 0) + (profileData.draws || 0),
+                    wins: profileData.wins || 0,
+                    draws: profileData.draws || 0,
+                    losses: profileData.losses || 0,
+                    elo: profileData.elo || 1200
+                });
             }
-
-            // 2. Fetch Stats (Mocked or Real)
-            setStats({
-                points: Math.floor(Math.random() * 500),
-                matchesPlayed: Math.floor(Math.random() * 100),
-                wins: Math.floor(Math.random() * 40),
-                draws: Math.floor(Math.random() * 20),
-                losses: Math.floor(Math.random() * 40)
-            });
 
         } catch (error) {
             console.error('Error:', error);
@@ -126,7 +118,7 @@ export function UserProfile({ language }) {
                             </h1>
                             <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mb-6">
                                 <div className="px-4 py-1.5 bg-blue-900/30 border border-blue-500/30 rounded-full text-blue-300 font-bold text-sm uppercase tracking-wide flex items-center gap-2">
-                                    <Shield size={14} /> {profile.team || "Free Agent"}
+                                    <Shield size={14} /> {profile.team || (t.noTeam || "No Team")}
                                 </div>
                             </div>
 
@@ -149,7 +141,7 @@ export function UserProfile({ language }) {
                                     </>
                                 ) : (
                                     <button
-                                        onClick={() => navigate('/', { state: { view: 'main' } })}
+                                        onClick={() => navigate('/', { state: { view: 'main' } })} // Fallback to main menu for now or open chat if passed props
                                         className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all hover:scale-105 shadow-lg shadow-blue-900/30 flex items-center gap-2"
                                     >
                                         <MessageSquare size={18} /> {t.sendMessage || "Send Message"}
@@ -180,8 +172,8 @@ export function UserProfile({ language }) {
                         <div className="flex items-center gap-3 mb-2 text-slate-400 uppercase text-xs font-bold tracking-wider">
                             <Trophy size={16} className="text-yellow-400" /> ELO
                         </div>
-                        <div className="text-4xl font-black text-white mb-1 group-hover:text-yellow-300 transition-colors">
-                            1200 {/* Placeholder ELO */}
+                        <div className="text-4xl font-black text-white mb-1 group-hover:text-yellow-300 transition-colors text-base p-2">
+                            Coming Soon
                         </div>
                         <div className="text-sm text-slate-500">
                             Global Rating
