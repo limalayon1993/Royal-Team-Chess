@@ -1,3 +1,7 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { User, Shield, MessageSquare, UserPlus } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 
 export function SocialPanel({ language, onOpenChat }) {
