@@ -10,6 +10,8 @@ export const translations = {
         backToLobby: "Back to Lobby",
         matchDrawn: "DRAW",
         wins: "WINS!",
+        white: "White",
+        black: "Black",
 
         // Lobby
         lobby: "Lobby",
@@ -114,6 +116,12 @@ export const translations = {
         active: "Active",
         muted: "Muted",
         typePlaceholder: "Type...",
+        offerDraw: "Offer Draw",
+        drawConfirm: "Offer a draw to your opponent?",
+        drawOffered: "Opponent offers a draw",
+        accept: "Accept",
+        reject: "Reject",
+        drawRejected: "Draw offer rejected",
 
         // Online Guide
         howToPlayMultiplayer: "How to Play Online",
@@ -197,6 +205,19 @@ export const translations = {
         leaveSpectator: "Leave Spectator Mode",
         waitingForData: "Waiting for game data...",
         noSpectators: "No spectators yet",
+        friends: "Friends",
+        addFriend: "Add Friend",
+        friendAdded: "Friend Added",
+        sendFriendRequest: "Send Friend Request",
+        requestMessagePlaceholder: "Hello! I'd like to add you as a friend...",
+        sendRequest: "Send Request",
+        friendRequestSent: "Friend request sent!",
+        acceptRequest: "Accept Request",
+        declineRequest: "Decline",
+        requestAccepted: "Request Accepted",
+        requestDeclined: "Request Declined",
+        removeFriend: "Remove Friend",
+        friendRemoved: "Friend Removed",
     },
     es: {
         // Pantalla Principal
@@ -325,6 +346,12 @@ export const translations = {
         active: "Activo",
         muted: "Silenciado",
         typePlaceholder: "Escribe...",
+        offerDraw: "Ofrecer Tablas",
+        drawConfirm: "¿Ofrecer tablas al rival?",
+        drawOffered: "Rival ofrece tablas",
+        accept: "Aceptar",
+        reject: "Rechazar",
+        drawRejected: "Tablas rechazadas",
 
         // Online Guide
         howToPlayMultiplayer: "Cómo Jugar Online",
@@ -408,5 +435,18 @@ export const translations = {
         leaveSpectator: "Dejar de Espectar",
         waitingForData: "Esperando datos de la partida...",
         noSpectators: "Sin espectadores aún",
+        friends: "Amigos",
+        addFriend: "Añadir Amigo",
+        friendAdded: "Amigo Añadido",
+        sendFriendRequest: "Enviar Solicitud",
+        requestMessagePlaceholder: "¡Hola! Me gustaría añadirte a amigos...",
+        sendRequest: "Enviar Solicitud",
+        friendRequestSent: "¡Solicitud enviada!",
+        acceptRequest: "Aceptar Solicitud",
+        declineRequest: "Rechazar",
+        requestAccepted: "Solicitud Aceptada",
+        requestDeclined: "Solicitud Rechazada",
+        removeFriend: "Eliminar Amigo",
+        friendRemoved: "Amigo Eliminado",
     },
 };

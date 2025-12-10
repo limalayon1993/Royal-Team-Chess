@@ -1,38 +1,97 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Shield, MessageSquare, UserPlus } from 'lucide-react';
+import { User, Shield, MessageSquare, UserPlus, Check } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 
-export function SocialPanel({ language, onOpenChat }) {
+export function SocialPanel({ language, onOpenChat, onInvite, socket }) {
     const navigate = useNavigate();
     const { user: currentUser } = useAuth();
     const [activeTab, setActiveTab] = useState('friends'); // 'friends' or 'team'
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(false);
 
+    const [userStatuses, setUserStatuses] = useState({}); // userId -> status
+    const [inviteStatus, setInviteStatus] = useState({}); // userId -> 'sent' | null
+
     useEffect(() => {
         fetchUsers();
-    }, [activeTab]);
+
+        const handleFriendUpdate = () => fetchUsers();
+        window.addEventListener('friend-updated', handleFriendUpdate);
+
+        // Listen for real-time status updates from server
+        if (socket) {
+
+
+            const handleStatusUpdate = ({ userId, status }) => {
+                setUserStatuses(prev => ({
+                    ...prev,
+                    [userId]: status
+                }));
+            };
+
+            const handleInitialStatuses = (statuses) => {
+                setUserStatuses(prev => ({
+                    ...prev,
+                    ...statuses
+                }));
+            };
+
+            socket.on('userStatusUpdate', handleStatusUpdate);
+            socket.on('initialUserStatuses', handleInitialStatuses); // Listen for snapshot
+
+            return () => {
+                window.removeEventListener('friend-updated', handleFriendUpdate);
+                socket.off('userStatusUpdate', handleStatusUpdate);
+                socket.off('initialUserStatuses', handleInitialStatuses);
+            };
+        }
+
+        return () => {
+            window.removeEventListener('friend-updated', handleFriendUpdate);
+        };
+    }, [activeTab, socket]);
 
     const fetchUsers = async () => {
+        if (!currentUser) {
+            console.log('[SocialPanel] No currentUser, skipping fetch');
+            return;
+        }
+
+        console.log('[SocialPanel] Fetching for tab:', activeTab, 'User:', currentUser.id);
         setLoading(true);
         try {
             if (activeTab === 'friends') {
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .neq('id', currentUser?.id)
-                    .limit(20);
+                const { data: friendsData, error: friendsError } = await supabase
+                    .from('friends')
+                    .select('friend_id')
+                    .eq('user_id', currentUser.id);
 
-                if (data) {
-                    const mapped = data.map(p => ({
-                        id: p.id,
-                        name: p.username || 'Unknown',
-                        status: 'offline', // default
-                        avatar: p.avatar_url
-                    }));
-                    setUsers(mapped);
+                if (friendsError) console.error('[SocialPanel] Friends Query Error:', friendsError);
+                console.log('[SocialPanel] Friends DB Relations:', friendsData?.length, friendsData);
+
+                if (friendsData && friendsData.length > 0) {
+                    const friendIds = friendsData.map(f => f.friend_id);
+                    const { data: profiles, error: profilesError } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .in('id', friendIds);
+
+                    if (profilesError) console.error('[SocialPanel] Profiles Query Error:', profilesError);
+                    console.log('[SocialPanel] Profiles Fetched:', profiles?.length);
+
+                    if (profiles) {
+                        const mapped = profiles.map(p => ({
+                            id: p.id,
+                            name: p.username || 'Unknown',
+                            avatar: p.avatar_url
+                        }));
+                        setUsers(mapped);
+                    }
+                } else {
+                    console.log('[SocialPanel] No friends found in DB, clearing list.');
+                    setUsers([]);
                 }
             } else {
                 setUsers([]);
@@ -55,7 +114,7 @@ export function SocialPanel({ language, onOpenChat }) {
                             : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
                             }`}
                     >
-                        <User size={16} /> Players
+                        <User size={16} /> {language === 'es' ? 'Amigos' : 'Friends'}
                     </button>
                     <button
                         onClick={() => setActiveTab('team')}
@@ -87,7 +146,8 @@ export function SocialPanel({ language, onOpenChat }) {
                                 )}
                             </div>
                             {/* Status Dot */}
-                            <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-slate-900 ${user.status === 'online' ? 'bg-green-500' : 'bg-slate-500'
+                            <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-slate-900 ${(userStatuses[user.id] || 'offline') === 'online' ? 'bg-green-500' :
+                                (userStatuses[user.id] || 'offline') === 'ingame' ? 'bg-orange-500' : 'bg-slate-500'
                                 }`} />
                         </div>
 
@@ -95,7 +155,7 @@ export function SocialPanel({ language, onOpenChat }) {
                         <div className="flex-1 min-w-0">
                             <h4 className="text-sm font-bold text-white truncate">{user.name}</h4>
                             <p className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider">
-                                {user.status}
+                                {userStatuses[user.id] || 'offline'}
                             </p>
                         </div>
 
@@ -111,8 +171,30 @@ export function SocialPanel({ language, onOpenChat }) {
                             >
                                 <MessageSquare size={14} />
                             </button>
-                            <button className="p-1.5 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white transition-colors" title="Invite to Party">
-                                <UserPlus size={14} />
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const isOffline = (userStatuses[user.id] || 'offline') === 'offline';
+                                    if (isOffline) return; // Do nothing if offline
+
+                                    console.log('Invite Button Clicked', user);
+                                    if (onInvite) {
+                                        onInvite(user);
+                                        setInviteStatus(prev => ({ ...prev, [user.id]: 'sent' }));
+                                        setTimeout(() => {
+                                            setInviteStatus(prev => ({ ...prev, [user.id]: null }));
+                                        }, 2000);
+                                    }
+                                }}
+                                className={`p-1.5 rounded-lg transition-colors ${(userStatuses[user.id] || 'offline') === 'offline'
+                                    ? 'bg-slate-700 text-slate-500 cursor-not-allowed' // Offline style
+                                    : inviteStatus[user.id] === 'sent'
+                                        ? 'bg-green-500 text-white'
+                                        : 'bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white'
+                                    }`}
+                                title={(userStatuses[user.id] || 'offline') === 'offline' ? "User is Offline" : (inviteStatus[user.id] === 'sent' ? "Sent!" : "Invite to Party")}
+                            >
+                                {inviteStatus[user.id] === 'sent' ? <Check size={14} /> : <UserPlus size={14} />}
                             </button>
                         </div>
                     </div>

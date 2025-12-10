@@ -1,9 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, Trash2, Search, MessageSquare } from 'lucide-react';
+import { X, Send, Trash2, Search, MessageSquare, UserPlus, Gamepad2, Check } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
-export function ChatModal({ isOpen, onClose, language, currentUser, initialChatUser }) {
+import { translations } from '../translations';
+
+export function ChatModal({ isOpen, onClose, language, currentUser, initialChatUser, onJoinParty, onAcceptProposal, party }) {
+    console.log('[ChatModal] MOUNTED. isOpen:', isOpen, 'User:', currentUser?.id);
     if (!isOpen) return null;
+
+    const t = translations[language];
 
     const [activeChat, setActiveChat] = useState(null);
     const [chats, setChats] = useState([]);
@@ -13,7 +18,11 @@ export function ChatModal({ isOpen, onClose, language, currentUser, initialChatU
     const messagesEndRef = useRef(null);
 
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        setTimeout(() => {
+            if (messagesEndRef.current) {
+                messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+            }
+        }, 100);
     };
 
     useEffect(() => {
@@ -27,7 +36,9 @@ export function ChatModal({ isOpen, onClose, language, currentUser, initialChatU
         const subscription = supabase
             .channel('public:messages')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+                // alert('DEBUG: Message Inserted!'); // Optional
                 if (payload.new.sender_id === currentUser.id || payload.new.receiver_id === currentUser.id) {
+                    // alert('DEBUG: New Message for ME!');
                     fetchChats();
                 }
             })
@@ -129,7 +140,11 @@ export function ChatModal({ isOpen, onClose, language, currentUser, initialChatU
             .order('created_at', { ascending: false })
             .limit(100);
 
-        if (error || !msgs) return;
+        if (error || !msgs) {
+            console.error('[ChatModal] fetchChats error:', error);
+            return;
+        }
+        console.log('[ChatModal] fetchChats raw msgs:', msgs.length, msgs);
 
         const chatMap = new Map();
         msgs.forEach(msg => {
@@ -187,6 +202,51 @@ export function ChatModal({ isOpen, onClose, language, currentUser, initialChatU
             console.error('Error sending:', error);
         } else {
             fetchChats();
+        }
+    };
+
+    const handleAcceptRequest = async (msg) => {
+        try {
+            // 1. Create Friendship (Bidirectional via RPC)
+            // Uses security definer function to bypass RLS for the other user's row
+            const { error: fError } = await supabase.rpc('accept_friend_request', {
+                user_a: currentUser.id,
+                user_b: activeChat
+            });
+
+            if (fError) {
+                console.error('Error accepting:', fError);
+                return;
+            }
+
+            // 2. Update Message Status
+            const { error: mError } = await supabase
+                .from('messages')
+                .update({ metadata: { ...msg.metadata, status: 'accepted' } })
+                .eq('id', msg.id);
+
+            if (!mError) {
+                // Update local state and trigger refresh
+                setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, metadata: { ...m.metadata, status: 'accepted' } } : m));
+                window.dispatchEvent(new Event('friend-updated')); // Notify SocialPanel
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleDeclineRequest = async (msg) => {
+        try {
+            const { error } = await supabase
+                .from('messages')
+                .update({ metadata: { ...msg.metadata, status: 'declined' } })
+                .eq('id', msg.id);
+
+            if (!error) {
+                setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, metadata: { ...m.metadata, status: 'declined' } } : m));
+            }
+        } catch (err) {
+            console.error(err);
         }
     };
 
@@ -282,7 +342,7 @@ export function ChatModal({ isOpen, onClose, language, currentUser, initialChatU
                                         {chats.find(c => c.other_user_id === activeChat)?.avatar_url ? (
                                             <img src={chats.find(c => c.other_user_id === activeChat)?.avatar_url} className="w-full h-full object-cover" />
                                         ) : (
-                                            chats.find(c => c.other_user_id === activeChat)?.username.substring(0, 2).toUpperCase()
+                                            (chats.find(c => c.other_user_id === activeChat)?.username || '??').substring(0, 2).toUpperCase()
                                         )}
                                     </div>
                                     <span className="font-bold text-white">
@@ -298,11 +358,140 @@ export function ChatModal({ isOpen, onClose, language, currentUser, initialChatU
                             <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
                                 {messages.map((msg, idx) => {
                                     const isMe = msg.sender_id === currentUser.id;
+                                    const isFriendRequest = msg.type === 'friend_request';
+                                    const isPartyInvite = typeof msg.content === 'string' && msg.content.startsWith('PARTY_INVITE:::');
+                                    const isPartyProposal = typeof msg.content === 'string' && msg.content.startsWith('PARTY_PROPOSAL:::');
+                                    const status = msg.metadata?.status || 'pending';
+
+                                    if (isPartyProposal) {
+                                        const senderUsername = msg.content.split(':::')[1];
+                                        return (
+                                            <div key={msg.id || idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4`}>
+                                                <div className={`max-w-[80%] rounded-2xl p-1 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 ${isMe ? 'rounded-tr-none' : 'rounded-tl-none'}`}>
+                                                    <div className="bg-slate-900/90 rounded-xl p-4">
+                                                        <div className="flex items-center gap-2 mb-2 text-xs font-bold text-indigo-400 uppercase tracking-widest">
+                                                            <Gamepad2 size={14} /> Party Proposal
+                                                        </div>
+                                                        <p className="text-sm text-white mb-4 italic">
+                                                            "{t?.partyProposalText || "I propose we start a party!"}"
+                                                        </p>
+
+                                                        {!isMe && (
+                                                            party ? (
+                                                                <button
+                                                                    disabled
+                                                                    className="w-full py-2 bg-green-500/20 border border-green-500/50 text-green-400 rounded-lg text-xs font-bold flex items-center justify-center gap-2 cursor-default"
+                                                                >
+                                                                    <Check size={14} /> Accepted
+                                                                </button>
+                                                            ) : (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        console.log('[ChatModal] Accept clicked for:', senderUsername);
+                                                                        if (onAcceptProposal) onAcceptProposal(senderUsername);
+                                                                    }}
+                                                                    className="w-full py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-xs font-bold transition-all shadow-lg shadow-green-900/40"
+                                                                >
+                                                                    Accept Proposal
+                                                                </button>
+                                                            )
+                                                        )}
+                                                        {isMe && (
+                                                            <div className="text-xs text-slate-500 text-center py-1">
+                                                                Proposal sent.
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
+                                    if (isPartyInvite) {
+                                        const partyId = msg.content.split(':::')[1];
+                                        return (
+                                            <div key={msg.id || idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4`}>
+                                                <div className={`max-w-[80%] rounded-2xl p-1 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 ${isMe ? 'rounded-tr-none' : 'rounded-tl-none'}`}>
+                                                    <div className="bg-slate-900/90 rounded-xl p-4">
+                                                        <div className="flex items-center gap-2 mb-2 text-xs font-bold text-indigo-400 uppercase tracking-widest">
+                                                            <Gamepad2 size={14} /> Party Invite
+                                                        </div>
+                                                        <p className="text-sm text-white mb-4 italic">"{t?.partyInviteText || "Let's team up!"}"</p>
+
+                                                        {!isMe && (
+                                                            <button
+                                                                onClick={() => onJoinParty && onJoinParty(partyId)}
+                                                                className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-all shadow-lg shadow-indigo-900/40"
+                                                            >
+                                                                Join Party
+                                                            </button>
+                                                        )}
+                                                        {isMe && (
+                                                            <div className="text-xs text-slate-500 text-center py-1">
+                                                                Invite sent.
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
+                                    if (isFriendRequest) {
+                                        return (
+                                            <div key={msg.id || idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4`}>
+                                                <div className={`max-w-[80%] rounded-2xl p-1 bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 ${isMe ? 'rounded-tr-none' : 'rounded-tl-none'}`}>
+                                                    <div className="bg-slate-900/90 rounded-xl p-4">
+                                                        <div className="flex items-center gap-2 mb-2 text-xs font-bold text-blue-400 uppercase tracking-widest">
+                                                            <UserPlus size={14} /> Friend Request
+                                                        </div>
+                                                        <p className="text-sm text-white mb-4 italic">"{msg.content}"</p>
+
+                                                        {status === 'pending' && !isMe && (
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    onClick={() => handleAcceptRequest(msg)}
+                                                                    className="flex-1 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-xs font-bold transition-all"
+                                                                >
+                                                                    Accept
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeclineRequest(msg)}
+                                                                    className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-xs font-bold transition-all"
+                                                                >
+                                                                    Decline
+                                                                </button>
+                                                            </div>
+                                                        )}
+
+                                                        {status === 'pending' && isMe && (
+                                                            <div className="text-xs text-slate-500 text-center py-1 bg-slate-800/50 rounded-lg">
+                                                                Waiting for response...
+                                                            </div>
+                                                        )}
+
+                                                        {status === 'accepted' && (
+                                                            <div className="text-xs text-green-400 font-bold text-center py-2 bg-green-500/10 rounded-lg border border-green-500/20">
+                                                                Request Accepted!
+                                                            </div>
+                                                        )}
+
+                                                        {status === 'declined' && (
+                                                            <div className="text-xs text-red-400 font-bold text-center py-2 bg-red-500/10 rounded-lg border border-red-500/20">
+                                                                Request Declined
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
                                     return (
                                         <div key={msg.id || idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                                             <div className={`max-w-[70%] rounded-2xl px-4 py-2 ${isMe
-                                                    ? 'bg-blue-600 text-white rounded-tr-none'
-                                                    : 'bg-slate-800 text-slate-200 rounded-tl-none'
+                                                ? 'bg-blue-600 text-white rounded-tr-none'
+                                                : 'bg-slate-800 text-slate-200 rounded-tl-none'
                                                 }`}>
                                                 <p className="text-sm">{msg.content}</p>
                                                 <p className={`text-[10px] mt-1 text-right ${isMe ? 'text-blue-200' : 'text-slate-500'}`}>

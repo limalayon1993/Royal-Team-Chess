@@ -4,7 +4,7 @@ import { Heatmap } from './Visualizer/Heatmap';
 import { Thermometer } from './Visualizer/Thermometer';
 import { Shield } from './Visualizer/Shield';
 import { Flame } from './Visualizer/Flame';
-import { MessageSquare, Activity, Mic, MicOff, ChevronDown, ChevronUp, Flag, Send, Clock, Users } from 'lucide-react';
+import { MessageSquare, Activity, Mic, MicOff, ChevronDown, ChevronUp, Flag, Send, Clock, Users, Handshake, LogOut, X, Check } from 'lucide-react';
 import { translations } from '../translations';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import { AudioQueue } from '../utils/AudioQueue';
@@ -23,6 +23,8 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
     const [micOn, setMicOn] = useState(false);
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState('');
+    const [drawOfferedByMe, setDrawOfferedByMe] = useState(false);
+    const [drawOfferReceived, setDrawOfferReceived] = useState(false);
 
     // Filter out my own board from the visualizer
     console.log('GameRoom Render:', { role, myBoardId, boards: teammateBoards?.length });
@@ -49,13 +51,22 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
         const onVoice = (data) => {
             audioQueueRef.current.add(data);
         };
+        const onDrawOffered = () => setDrawOfferReceived(true);
+        const onDrawRejected = () => {
+            setDrawOfferedByMe(false);
+            alert(t.drawRejected || "Draw offer rejected");
+        };
 
         socket.on('chatMessage', onChat);
         socket.on('voiceData', onVoice);
+        socket.on('drawOffered', onDrawOffered);
+        socket.on('drawRejected', onDrawRejected);
 
         return () => {
             socket.off('chatMessage', onChat);
             socket.off('voiceData', onVoice);
+            socket.off('drawOffered', onDrawOffered);
+            socket.off('drawRejected', onDrawRejected);
             audioQueueRef.current.clear();
             audioQueueRef.current.close();
         };
@@ -97,6 +108,24 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
         }
     };
 
+    const handleOfferDraw = () => {
+        if (drawOfferedByMe) return;
+        if (window.confirm(t.drawConfirm || "Offer a draw?")) {
+            setDrawOfferedByMe(true);
+            socket.emit('offerDraw', { roomId });
+        }
+    };
+
+    const handleAcceptDraw = () => {
+        socket.emit('acceptDraw', { roomId });
+        setDrawOfferReceived(false);
+    };
+
+    const handleRejectDraw = () => {
+        socket.emit('rejectDraw', { roomId });
+        setDrawOfferReceived(false);
+    };
+
     const sendMessage = (e) => {
         e.preventDefault();
         if (!inputText.trim()) return;
@@ -115,7 +144,24 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
 
     // 4. Main Render
     return (
-        <div className="h-screen flex flex-col bg-slate-900 text-white overflow-hidden">
+        <div className="h-screen flex flex-col bg-slate-900 text-white overflow-hidden relative">
+            {/* Draw Offer Modal */}
+            {drawOfferReceived && !boardResult && (
+                <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 bg-slate-800 border border-slate-600 p-4 rounded-xl shadow-2xl flex flex-col items-center gap-4 animate-bounce-in">
+                    <div className="text-lg font-bold flex items-center gap-2">
+                        <Flag className="text-blue-400" /> {t.drawOffered || "Draw Offered"}
+                    </div>
+                    <div className="flex gap-2">
+                        <button onClick={handleAcceptDraw} className="px-4 py-2 bg-green-600 hover:bg-green-500 rounded-lg font-bold flex items-center gap-2">
+                            <Check size={16} /> {t.accept || "Accept"}
+                        </button>
+                        <button onClick={handleRejectDraw} className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg font-bold flex items-center gap-2">
+                            <X size={16} /> {t.reject || "Reject"}
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Header */}
             <header className="bg-slate-800/50 p-2 flex justify-between items-center shrink-0 border-b border-slate-700">
                 <div className="flex items-center gap-4">
@@ -143,14 +189,24 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
                 </div>
 
                 <div className="flex gap-2">
-                    {!boardResult && (
-                        <button
-                            onClick={handleResign}
-                            className="p-2 rounded-full bg-slate-700 hover:bg-red-600 transition-colors text-slate-300 hover:text-white"
-                            title={t.resign}
-                        >
-                            <Flag size={16} />
-                        </button>
+                    {!boardResult && isPlayer && (
+                        <>
+                            <button
+                                onClick={handleOfferDraw}
+                                disabled={drawOfferedByMe}
+                                className={`p-2 rounded-full transition-colors ${drawOfferedByMe ? 'bg-slate-600 cursor-not-allowed opacity-50' : 'bg-blue-900/50 hover:bg-blue-700 text-blue-200 border border-blue-800'}`}
+                                title={t.offerDraw || "Offer Draw"}
+                            >
+                                <Flag size={16} />
+                            </button>
+                            <button
+                                onClick={handleResign}
+                                className="p-2 rounded-full bg-slate-700 hover:bg-red-600 transition-colors text-slate-300 hover:text-white"
+                                title={t.resign}
+                            >
+                                <LogOut size={16} />
+                            </button>
+                        </>
                     )}
                     <button
                         onClick={() => setMicOn(!micOn)}
@@ -196,8 +252,8 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
                                                 <div className="text-xs text-slate-400 uppercase font-bold mb-2">{t.teamStatus}</div>
                                                 <div className="flex justify-between items-center">
                                                     <span>{t.yourContribution}:</span>
-                                                    <span className={`font-mono ${boardResult.winner === role ? 'text-green-400' : 'text-slate-500'}`}>
-                                                        +{boardResult.winner === role ? boardResult.points : 0} pts
+                                                    <span className={`font-mono ${(boardResult.winner === role || !boardResult.winner) ? 'text-green-400' : 'text-slate-500'}`}>
+                                                        +{(boardResult.winner === role || !boardResult.winner) ? boardResult.points : 0} pts
                                                     </span>
                                                 </div>
                                             </div>

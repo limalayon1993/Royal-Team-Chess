@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
 
 const AuthContext = createContext({});
@@ -21,7 +21,6 @@ export const AuthProvider = ({ children }) => {
 
         // Listen for changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            console.log('Auth Event:', event);
             if (event === 'PASSWORD_RECOVERY') {
                 setRecoveryMode(true);
             }

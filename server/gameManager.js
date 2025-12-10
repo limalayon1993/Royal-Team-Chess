@@ -1,16 +1,44 @@
 const { Chess } = require('chess.js');
 const Heatmap = require('./heatmap');
+const EloRank = require('elo-rank');
+const elo = new EloRank(32); // K-factor 32
+const db = require('./db'); // Database Adapter
 
 
 class GameManager {
     constructor(io) {
         this.io = io;
         this.rooms = new Map(); // roomId -> { boards: [], players, timer, settings, ... }
+        this.matchmakingQueue = []; // Array of { socket, settings, timestamp }
+        this.matchmakingQueue = []; // Array of { socket, settings, timestamp, colorPreference }
+        this.userElos = new Map(); // username -> elo
+        this.lastPlayedColor = new Map(); // username -> 'white' | 'black'
+        this.partyManager = null;
     }
 
-    createRoom(socket, { roomId, username, settings, roomName, isPrivate, password, language }) {
+    setPartyManager(pm) {
+        this.partyManager = pm;
+    }
+
+    isPlayerBusy(socketId) {
+        for (const room of this.rooms.values()) {
+            // Check if player is in an active game 
+            if (room.active) {
+                if (room.players.white.includes(socketId) || room.players.black.includes(socketId)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    createRoom(socket, { roomId, username, settings, roomName, isPrivate, password, language, isMatchmaking } = {}) {
         try {
             console.log('Received createRoom request:', { roomId, roomName, isPrivate, settings });
+            if (!roomId) {
+                console.error('[GameManager] createRoom called without roomId');
+                return;
+            }
             if (this.rooms.has(roomId)) {
                 socket.emit('error', 'Room already exists');
                 return;
@@ -28,9 +56,18 @@ class GameManager {
                     name: roomName || `Room ${roomId}`,
                     isPrivate: !!isPrivate,
                     password: password || null,
-                    language: language || 'en',
+                    name: roomName || `Room ${roomId}`,
+                    isPrivate: !!isPrivate,
+                    password: password || null,
+                    // language: language || 'en', // REMOVED: Replaced by team-based languages
+                    isMatchmaking: !!isMatchmaking,
                     createdAt: Date.now()
                 },
+                languages: {
+                    white: language || null, // Creator sets initial language for their team (usually white)
+                    black: null
+                },
+                hostId: socket.id, // Set creator as host
                 boards: [], // Array of { game, whitePlayerId, blackPlayerId }
                 settings: roomSettings,
                 players: {
@@ -48,11 +85,30 @@ class GameManager {
                 boardResults: [] // { boardId, winner, reason, points }
             });
 
-            const room = this.rooms.get(roomId);
-            if (username) room.usernames.set(socket.id, username);
+            if (username) {
+                room.usernames.set(socket.id, username);
+
+                // Fetch ELO async (fire and forget for cache, or wait? 
+                // Better to fetch and store in memory for session usage)
+                db.getUserElo(username).then(elo => {
+                    this.userElos.set(username, elo);
+                    console.log(`[ELO] Loaded for ${username}: ${elo}`);
+                });
+            }
+
+            // Assign hostId
+            room.hostId = socket.id;
 
             socket.join(roomId);
-            socket.emit('roomCreated', roomId);
+
+            // Send full room data to creator (Crucial for Matchmaking so they know they are Host)
+            socket.emit('joinedRoom', {
+                roomId,
+                settings: room.settings,
+                roomName: room.metadata.name,
+                hostId: room.hostId
+            });
+
             console.log(`Room ${roomId} created successfully`);
 
             // Broadcast updated room list to everyone
@@ -76,7 +132,8 @@ class GameManager {
                     maxPlayers: room.settings.teamSize * 2,
                     settings: room.settings,
                     active: room.active,
-                    spectators: room.players.spectators.length
+                    spectators: room.players.spectators.length,
+                    isMatchmaking: room.metadata.isMatchmaking
                 });
             } else {
                 // Optionally send private rooms with a lock flag, but no details if we want to hide them completely.
@@ -90,7 +147,8 @@ class GameManager {
                     settings: room.settings,
                     active: room.active,
                     spectators: room.players.spectators.length,
-                    isPrivate: true
+                    isPrivate: true,
+                    isMatchmaking: room.metadata.isMatchmaking
                 });
             }
         });
@@ -110,8 +168,10 @@ class GameManager {
                 maxPlayers: room.settings.teamSize * 2,
                 settings: room.settings,
                 active: room.active,
+                active: room.active,
                 spectators: room.players.spectators.length,
-                isPrivate: room.metadata.isPrivate
+                isPrivate: room.metadata.isPrivate,
+                isMatchmaking: room.metadata.isMatchmaking
             });
         });
         console.log(`[GameManager] Broadcasting rooms list to all clients. Count: ${roomsList.length}`);
@@ -147,8 +207,20 @@ class GameManager {
 
         if (username) room.usernames.set(socket.id, username);
 
+        // Fetch ELO on join
+        if (username) {
+            db.getUserElo(username).then(elo => {
+                this.userElos.set(username, elo);
+            });
+        }
+
         socket.join(roomId);
-        socket.emit('joinedRoom', { roomId, settings: room.settings, roomName: room.metadata.name });
+        socket.emit('joinedRoom', {
+            roomId,
+            settings: room.settings,
+            roomName: room.metadata.name,
+            hostId: room.hostId
+        });
         this.emitRoomUpdate(roomId);
 
         // If game is active, send current state to the reconnecting player
@@ -240,7 +312,7 @@ class GameManager {
     emitRoomUpdate(roomId) {
         const room = this.rooms.get(roomId);
         if (!room) return;
-
+        // console.log('[GameManager] emitRoomUpdate', roomId);
         this.io.to(roomId).emit('roomUpdate', {
             players: room.players,
             ready: {
@@ -249,17 +321,599 @@ class GameManager {
             },
             settings: room.settings,
             active: room.active,
+            active: room.active,
             usernames: Object.fromEntries(room.usernames),
-            roomName: room.metadata.name
+            roomName: room.metadata.name,
+            isMatchmaking: room.metadata.isMatchmaking,
+            hostId: room.hostId, // Send hostId
+            boards: room.boards ? room.boards.map(b => ({
+                id: b.id,
+                white: b.whitePlayerId,
+                black: b.blackPlayerId
+            })) : [],
+            elos: Object.fromEntries(
+                Array.from(room.usernames.entries()).map(([socketId, username]) => [
+                    socketId,
+                    this.userElos.get(username) || 300
+                ])
+            )
         });
 
         this.broadcastRoomsList();
     }
 
-    startGame(socket, { roomId }) {
+    broadcastRoomsList() {
+        console.log(`[GameManager] Broadcasting rooms list to all clients. Count: ${this.rooms.size}`);
+        const rooms = Array.from(this.rooms.values()).map(r => ({
+            id: r.id,
+            name: r.metadata.name,
+            players: r.players.white.length + r.players.black.length,
+            maxPlayers: r.settings.teamSize * 2,
+            maxPlayers: r.settings.teamSize * 2,
+            isPrivate: r.metadata.isPrivate,
+            isMatchmaking: r.metadata.isMatchmaking,
+            language: r.metadata.language,
+            active: r.active
+        }));
+        this.io.emit('roomsList', rooms);
+    }
+
+    handleFindMatch(socket, { username, settings }) {
+        try {
+            console.log(`[Matchmaking] ${username} (${socket.id}) searching for match:`, settings);
+
+            // 0. Get User ELO (Needed for Dynamic Range)
+            const userElo = this.userElos.get(username) || 300;
+
+            // 1. Determine Group (Single or Party)
+            let group = [];
+
+            // Check if user is in a party
+            let party = null;
+            if (this.partyManager) {
+                party = this.partyManager.getParty(socket.id);
+            }
+
+            if (party) {
+                // Security: Only Leader can start search
+                if (party.leaderId !== socket.id) {
+                    socket.emit('error', 'Only party leader can start matchmaking');
+                    return;
+                }
+
+                console.log(`[Matchmaking] processing Party ${party.id} (Size: ${party.members.length})`);
+
+                // Build Group from Party Members
+                group = party.members.map(m => ({
+                    socket: this.io.sockets.sockets.get(m.socketId), // Live Socket
+                    username: m.username,
+                    elo: this.userElos.get(m.username) || 300,
+                    settings: settings // Shared settings from Leader
+                })).filter(m => m.socket); // Filter disconnected?
+
+                if (group.length !== party.members.length) {
+                    socket.emit('error', 'Some party members are offline');
+                    return;
+                }
+
+                // Force 'Any' Language for Parties (User Requirement)
+                settings.language = 'any';
+                group.forEach(m => m.settings.language = 'any');
+
+            } else {
+                // Single User -> "Party of 1"
+                group = [{
+                    socket: socket,
+                    username: username,
+                    elo: userElo,
+                    settings: settings
+                }];
+            }
+
+            // 2. Determine Color Preference (Leader's preference or logic?)
+            // For now, simpler: Leader's preference dictates.
+            let colorPreference = 'any';
+            if (this.lastPlayedColor.has(username)) {
+                const last = this.lastPlayedColor.get(username);
+                colorPreference = (last === 'white') ? 'black' : 'white';
+                console.log(`[Matchmaking] ${username} prefers ${colorPreference} (Last: ${last})`);
+            }
+
+            // 3. Try to find existing compatible room
+            const roomMatch = this.findCompatibleRoom(group, settings, Date.now(), colorPreference);
+
+            if (roomMatch) {
+                console.log(`[Matchmaking] Found existing room ${roomMatch.id} for ${username} (Group Size: ${group.length}). Assigned: ${roomMatch.assignedTeam}`);
+                this._executeJoin(group, roomMatch.id, roomMatch.assignedTeam, settings);
+                return;
+            }
+
+            // 4. No existing room, add to queue
+            // Note: Queue Logic needs to store GROUP.
+            // Current `addToQueue` pushes single socket.
+            // We need `addGroupToQueue`? 
+            // Phase 8 Plan said "Queue Logic Update".
+            // For MVP Party v1, let's just error if queue functionality isn't ready for groups, 
+            // OR refactor `addToQueue` to take a group structure.
+
+            // If we assume `addToQueue` stores an ENTRY, we can wrap group in it.
+            // But `processQueue` expects `entry.socket`.
+
+            // Let's modify addToQueue to handle this?
+            // Actually, for now, let's use the Leader as the "Queue Entry" and store group in it?
+
+            if (group.length > 1) {
+                // Temporary: Fallback simple queueing or Error?
+                // Ideally we implement `this.matchmakingQueue` to hold objects:
+                // { id, group: [], ... }
+                // Let's refactor addToQueue now.
+                this.addPartyToQueue(group, settings, colorPreference);
+            } else {
+                this.addToQueue(socket, username, settings, userElo, colorPreference);
+            }
+
+        } catch (err) {
+            console.error('Error in handleFindMatch:', err);
+            socket.emit('error', 'Failed to search for match');
+        }
+    }
+
+    _executeJoin(group, roomId, team, settings) {
         const room = this.rooms.get(roomId);
         if (!room) return;
 
+        // Assign Language if empty and critical
+        const isWhite = team === 'white';
+        // Only set language if not already set (it might be set by existing team members)
+        if (isWhite && !room.languages.white && settings.language !== 'any') {
+            room.languages.white = settings.language;
+        }
+        if (!isWhite && !room.languages.black && settings.language !== 'any') {
+            room.languages.black = settings.language;
+        }
+
+        // Join Loop
+        group.forEach(member => {
+            if (member.socket) {
+                this.joinRoom(member.socket, { roomId, username: member.username });
+
+                // Add to specific team list
+                if (isWhite) room.players.white.push(member.socket.id);
+                else room.players.black.push(member.socket.id);
+            }
+        });
+
+        // Emit Updates
+        this.emitRoomUpdate(roomId);
+        group.forEach(member => {
+            if (member.socket) {
+                member.socket.emit('matchmakingStatus', { status: 'found', roomId });
+            }
+        });
+    }
+
+    findCompatibleRoom(partyMembers, criteria, startTime, colorPreference) {
+        // partyMembers is Array of { elo, username, ... }
+
+        for (const [roomId, room] of this.rooms) {
+            // Basic Filters
+            if (room.metadata.isPrivate) continue;
+            if (!room.metadata.isMatchmaking) continue;
+            if (room.active || room.finished) continue;
+
+            // Capacity Check
+            const currentPlayers = room.players.white.length + room.players.black.length;
+            const maxPlayers = room.settings.teamSize * 2;
+            const sizeNeeded = partyMembers.length;
+
+            if (currentPlayers + sizeNeeded > maxPlayers) continue;
+
+            // Advanced Slot & Party Compatibility
+            const assignment = this.checkPartySlotCompatibility(room, partyMembers, criteria, startTime, colorPreference);
+            if (assignment) {
+                return { id: roomId, assignedTeam: assignment };
+            }
+        }
+        return null;
+    }
+
+    checkPartySlotCompatibility(room, partyMembers, criteria, startTime, colorPreference) {
+        // 1. Settings Match
+        const roomSettings = room.settings;
+        // Team Size
+        if (criteria.teamSize !== 'any' && parseInt(criteria.teamSize) !== roomSettings.teamSize) return null;
+        // Time
+        if (criteria.time !== 'any' && (parseInt(criteria.time) * 60) !== roomSettings.time) return null;
+
+        // 2. Determine Threshold
+        const now = Date.now();
+        const waitTime = (now - startTime) / 1000;
+        const threshold = this.calculateEloThreshold(waitTime);
+
+        // 3. Try Assigning to Teams
+        const tryWhite = () => this.isValidPartyJoin(room, 'white', partyMembers, threshold, criteria.language);
+        const tryBlack = () => this.isValidPartyJoin(room, 'black', partyMembers, threshold, criteria.language);
+
+        // Preference Logic
+        if (colorPreference === 'white') {
+            if (tryWhite()) return 'white';
+        } else if (colorPreference === 'black') {
+            if (tryBlack()) return 'black';
+        } else {
+            // Any
+            // Try to fill smaller team first
+            const wCount = room.players.white.length;
+            const bCount = room.players.black.length;
+
+            if (wCount <= bCount) {
+                if (tryWhite()) return 'white';
+                if (tryBlack()) return 'black';
+            } else {
+                if (tryBlack()) return 'black';
+                if (tryWhite()) return 'white';
+            }
+        }
+
+        return null;
+    }
+
+    isValidPartyJoin(room, teamToJoin, partyMembers, threshold, userLanguage) {
+        const teamSize = room.settings.teamSize;
+        const existingMembers = (teamToJoin === 'white') ? room.players.white : room.players.black;
+
+        // A. Space Check
+        if (existingMembers.length + partyMembers.length > teamSize) return false;
+
+        // B. Language Check (Smart Assignment)
+        // Rule: Team Language must match User Language OR be Null (Any/Empty).
+        // Exceptions:
+        // 1. If I am a Party (>1), I don't care about language (I bring my own comms).
+        // 2. If I manually selected 'Any', I don't care.
+
+        if (partyMembers.length === 1) {
+            const currentTeamLang = (teamToJoin === 'white') ? room.languages.white : room.languages.black;
+            if (currentTeamLang !== null && userLanguage !== 'any' && currentTeamLang !== userLanguage) {
+                return false; // Language Conflict (Single User vs Team Lang)
+            }
+        }
+
+        // Note: If Team Lang is null, we can join. If we dictate language, we set it later.
+
+        // C. Slot Simulation (The Tetris Logic)
+        const whiteCount = room.players.white.length;
+        const blackCount = room.players.black.length;
+
+        const myTeamCountAfter = ((teamToJoin === 'white') ? whiteCount : blackCount) + partyMembers.length;
+        const otherTeamCount = (teamToJoin === 'white') ? blackCount : whiteCount;
+
+        // Rule 1: Opening New Lane (Surplus)
+        if (myTeamCountAfter > otherTeamCount) {
+            // We are creating unpaired slots. 
+            // Logic: Matches are only validated for the PAIRS that exist.
+            // If we add players that have NO opponent, they are valid by definition (waiting for opp).
+            // However, we must ensure existing pairs remain valid (they shouldn't change though).
+            // And we must ensure the NEW pairs (if any) are valid.
+
+            // BUT, we must check if we are *partially* matching.
+            // e.g. W=1, B=1. Party of 2 joins White. W=3. 
+            // Slot 1 (exist) vs Slot 1 (exist) -> Unchanged.
+            // Slot 2 (new) vs Slot 2 (empty) -> Valid.
+            // Slot 3 (new) vs Slot 3 (empty) -> Valid.
+        }
+
+        // To handle all cases universally: SIMULATE THE BOARD.
+
+        const whiteElos = room.players.white.map(id => this.getElo(id));
+        const blackElos = room.players.black.map(id => this.getElo(id));
+
+        const partyElos = partyMembers.map(m => m.elo);
+
+        if (teamToJoin === 'white') whiteElos.push(...partyElos);
+        else blackElos.push(...partyElos);
+
+        // Sort Both
+        whiteElos.sort((a, b) => b - a);
+        blackElos.sort((a, b) => b - a);
+
+        // Check Pairs
+        const pairsToCheck = Math.min(whiteElos.length, blackElos.length);
+
+        for (let i = 0; i < pairsToCheck; i++) {
+            const diff = Math.abs(whiteElos[i] - blackElos[i]);
+            if (diff > threshold) {
+                return false; // Invalid Pair
+            }
+        }
+
+        return true;
+    }
+
+    getElo(socketId) {
+        // This function needs to find the username associated with the socketId
+        // within any room, then get its ELO.
+        // This is a bit inefficient if called frequently, but for matchmaking
+        // it should be fine.
+        for (const room of this.rooms.values()) {
+            const name = room.usernames.get(socketId);
+            if (name) return this.userElos.get(name) || 300;
+        }
+        return 300; // Fallback if socketId not found in any room's usernames
+    }
+
+    checkSettingsMatch(room, criteria) {
+        const roomSettings = room.settings;
+
+        // Team Size
+        if (criteria.teamSize !== 'any' && parseInt(criteria.teamSize) !== roomSettings.teamSize) return false;
+
+        // Time
+        if (criteria.time !== 'any' && (parseInt(criteria.time) * 60) !== roomSettings.time) return false;
+
+        // Language
+        const l1 = s1.language;
+        const l2 = s2.language;
+        let compatibleLang = false;
+        // With Smart Language, they just need to NOT be mutually exclusive if they are on same team.
+        // But createMatchRoom puts p1 vs p2. They are OPPOSED.
+        // So language DOES NOT MATTER for Opposition.
+        // They can play against each other even if l1 != l2.
+        // Wait, "Team Based Language".
+        // Quick Match 1v1:
+        // P1 (White) needs to match P1 Lang. P2 (Black) needs to match P2 Lang.
+        // So they are ALWAYS compatible linguistically because they are on different teams.
+        // Exception: If p1 wants "Spanish" and p2 wants "English", creating a room is fine.
+        // Room Metadata will have whiteLang=Spanish, blackLang=English.
+        compatibleLang = true;
+
+        if (!compatibleLang) return false;
+
+        return true;
+    }
+
+    addPartyToQueue(group, settings, colorPreference) {
+        // Group structure: [{ socket, username, ... }, ...]
+        // Queue Item
+        const entry = {
+            isParty: true,
+            group: group, // Array of members
+            settings: settings,
+            colorPreference,
+            timestamp: Date.now(),
+            // Calculated ELO for matchmaking? 
+            // For now, use Leader's ELO or Max? 
+            // Or average?
+            // Let's use Average.
+            elo: Math.floor(group.reduce((sum, m) => sum + m.elo, 0) / group.length)
+        };
+
+        this.matchmakingQueue.push(entry);
+
+        group.forEach(m => {
+            if (m.socket) m.socket.emit('matchmakingStatus', { status: 'searching' });
+        });
+
+        console.log(`[Matchmaking] Added Party (Size ${group.length}) to queue. Queue size: ${this.matchmakingQueue.length}`);
+        this.processQueue();
+    }
+
+    // Refactor addToQueue to use standard entry format 
+    // BUT maintain backward comp if needed, or unify.
+    addToQueue(socket, username, settings, elo, colorPreference = 'any') {
+        this.removeFromQueue(socket.id); // Ensure uniqueness is handled (might need update for Party check)
+
+        this.matchmakingQueue.push({
+            isParty: false,
+            socket, // For single user
+            username,
+            settings,
+            elo,
+            colorPreference,
+            timestamp: Date.now(),
+            group: [{ socket, username, elo, settings }] // Unified structure
+        });
+
+        socket.emit('matchmakingStatus', { status: 'searching' });
+        console.log(`[Matchmaking] Added ${username} to queue. Queue size: ${this.matchmakingQueue.length}`);
+
+        this.processQueue();
+    }
+
+    removeFromQueue(socketId) {
+        // Find entry where socketId belongs
+        const index = this.matchmakingQueue.findIndex(item => {
+            if (item.isParty) {
+                return item.group.some(m => m.socket.id === socketId);
+            }
+            return item.socket.id === socketId;
+        });
+
+        if (index !== -1) {
+            this.matchmakingQueue.splice(index, 1);
+            console.log(`[Matchmaking] Removed ${socketId} from queue.`);
+        }
+    }
+
+    processQueue() {
+        if (this.matchmakingQueue.length < 2) return;
+
+        const matchedIndices = new Set();
+
+        for (let i = 0; i < this.matchmakingQueue.length; i++) {
+            if (matchedIndices.has(i)) continue;
+
+            const entryA = this.matchmakingQueue[i];
+
+            for (let j = i + 1; j < this.matchmakingQueue.length; j++) {
+                if (matchedIndices.has(j)) continue;
+
+                const entryB = this.matchmakingQueue[j];
+
+                if (this.areEntriesCompatible(entryA, entryB)) {
+                    // Match Found!
+                    matchedIndices.add(i);
+                    matchedIndices.add(j);
+
+                    this.createMatchRoom(entryA, entryB); // Updated to handle groups
+                    break;
+                }
+            }
+        }
+
+        // Cleanup processed
+        this.matchmakingQueue = this.matchmakingQueue.filter((_, index) => !matchedIndices.has(index));
+    }
+
+    areEntriesCompatible(e1, e2) {
+        const s1 = e1.settings;
+        const s2 = e2.settings;
+
+        // Team Size Checking
+        const size1Str = s1.teamSize;
+        const size2Str = s2.teamSize;
+
+        let targetSize = 2; // Default
+        if (size1Str !== 'any') targetSize = parseInt(size1Str);
+        else if (size2Str !== 'any') targetSize = parseInt(size2Str);
+
+        // Validation: 
+        // If s1 says "2", s2 says "3" -> False.
+        if (size1Str !== 'any' && size2Str !== 'any' && size1Str !== size2Str) return false;
+
+        // Validation: Group Sizes must fit.
+        // E.g. Group A size 2. Group B size 2. Target Size 2.
+        // We are matching A vs B. 
+        // A fits in Team 1? Yes (2 <= 2).
+        // B fits in Team 2? Yes (2 <= 2).
+        // Match OK.
+
+        // E.g. Group A size 3. Target Size 2. -> Impossible (Should be filtered earlier but check here).
+        if (e1.group.length > targetSize) return false;
+        if (e2.group.length > targetSize) return false;
+
+        // Note: We are creating a NEW room. They will be opponents.
+        // So we strictly check (GroupSizeA <= TargetSize) AND (GroupSizeB <= TargetSize).
+
+        // Time
+        const time1 = s1.time;
+        const time2 = s2.time;
+        if (time1 !== 'any' && time2 !== 'any' && parseInt(time1) !== parseInt(time2)) return false;
+
+        // Language
+        // e1 (Team A) vs e2 (Team B)
+        // Team A Language must match e1 Members (Checked internally by e1).
+        // Team B Language must match e2 Members.
+        // e1 vs e2 Language is irrelevant unless we want to enforce common room language? (No, we decided teams are independent).
+        // But what about Room Language setting? 
+        // If e1 says "Spanish Only" (as a pref, not team pref), and e2 says "English Only".
+        // They can play.
+        // However, if `settings.language` implies "My Team Language", then it's fine.
+        // But if it means "Room Language", then they conflict.
+        // Our UI says "Language" (which filters rooms). 
+        // Previously: "Filtering by the language of the TEAM being joined... Parties automatically have 'Any'".
+        // So Partys usually have 'any'. Single users might have 'es'.
+        // If Single 'es' matches Single 'en', is that okay?
+        // Ideally YES for independent teams.
+        // BUT, `findCompatibleRoom` filters rooms by language?
+        // Wait, `checkSettingsMatch` line 520 checked `criteria.language !== room.language`.
+        // I removed that for `checkPartySlotCompatibility`.
+        // So, yes, we effectively ignore cross-team language for matching.
+
+        // DYNAMIC ELO LOGIC
+        const now = Date.now();
+        const waitA = (now - e1.timestamp) / 1000;
+        const waitB = (now - e2.timestamp) / 1000;
+        const maxWait = Math.max(waitA, waitB);
+
+        const eloThreshold = this.calculateEloThreshold(maxWait);
+        const eloDiff = Math.abs(e1.elo - e2.elo); // Using Avg ELO
+
+        if (eloDiff > eloThreshold) {
+            return false;
+        }
+
+        // COLOR BALANCING LOGIC
+        if (waitA > 10 || waitB > 10) return true;
+
+        const prefA = e1.colorPreference;
+        const prefB = e2.colorPreference;
+
+        if (prefA === 'white' && prefB === 'black') return true;
+        if (prefA === 'black' && prefB === 'white') return true;
+        if (prefA === 'any' || prefB === 'any') return true;
+
+        return false;
+    }
+
+    createMatchRoom(e1, e2) {
+        const roomId = Math.random().toString(36).substring(7);
+
+        // Resolve Settings
+        // Team Size Priority: Specific > Any. 
+        const s1 = e1.settings.teamSize;
+        const s2 = e2.settings.teamSize;
+
+        let size = 1; // Default
+        if (s1 !== 'any') size = parseInt(s1);
+        else if (s2 !== 'any') size = parseInt(s2);
+
+        // If both undefined/any, default to max group size?
+        const maxGroup = Math.max(e1.group.length, e2.group.length);
+        if (maxGroup > size) size = maxGroup; // Ensure room is big enough
+
+        const time = (e1.settings.time !== 'any') ? parseInt(e1.settings.time) * 60 :
+            (e2.settings.time !== 'any') ? parseInt(e2.settings.time) * 60 : 600;
+
+        // Language Resolution (For Metadata display, though teams are separate)
+        const lang = (e1.settings.language !== 'any') ? e1.settings.language :
+            (e2.settings.language !== 'any') ? e2.settings.language : 'en';
+
+        console.log(`[Matchmaking] Creating room ${roomId} for Groups (Sizes: ${e1.group.length} vs ${e2.group.length})`);
+
+        // Create Room
+        const roomSettings = {
+            time: time,
+            teamSize: size
+        };
+
+        // Host is Leader of Group 1
+        const hostSocket = e1.group[0].socket;
+        const hostName = e1.group[0].username;
+
+        this.createRoom(hostSocket, {
+            roomId,
+            username: hostName,
+            settings: roomSettings,
+            roomName: `Match ${roomId}`,
+            isPrivate: false,
+            isMatchmaking: true,
+            language: lang
+        });
+
+        // Set Language Metadata (Correctly)
+        const room = this.rooms.get(roomId);
+        if (room) {
+            room.languages.white = e1.settings.language !== 'any' ? e1.settings.language : null;
+            room.languages.black = e2.settings.language !== 'any' ? e2.settings.language : null;
+        }
+
+        // Join Group 1 -> White (Since e1 initiated/accepted as White-side preference or Random)
+        // Refine side based on preference?
+        let team1 = 'white';
+        let team2 = 'black';
+
+        if (e1.colorPreference === 'black' && e2.colorPreference !== 'black') {
+            team1 = 'black';
+            team2 = 'white';
+        }
+
+        this._executeJoin(e1.group, roomId, team1, e1.settings);
+        this._executeJoin(e2.group, roomId, team2, e2.settings);
+    }
+
+
+    startGame(socket, { roomId }) {
+        const room = this.rooms.get(roomId);
+        if (!room) return;
         if (room.active) return; // Prevent double start
 
         // Ensure equal players (basic pairing logic)
@@ -273,14 +927,57 @@ class GameManager {
             return;
         }
 
+        // 1. SORT TEAMS NOW (So users see the final order during countdown)
+        if (room.metadata.isMatchmaking) {
+            const getElo = (socketId) => {
+                const username = room.usernames.get(socketId);
+                return this.userElos.get(username) || 300;
+            };
+
+            room.players.white.sort((a, b) => getElo(b) - getElo(a));
+            room.players.black.sort((a, b) => getElo(b) - getElo(a));
+
+            console.log('[Matchmaking] Teams Sorted by ELO');
+            console.log('White ELOs:', room.players.white.map(id => getElo(id)));
+            console.log('Black ELOs:', room.players.black.map(id => getElo(id)));
+
+            // Emit update immediately so clients re-render with new order
+            this.emitRoomUpdate(roomId);
+        }
+
+        // 2. EMIT COUNTDOWN START
+        console.log(`[GameManager] Starting 5s countdown for room ${roomId}`);
+        this.io.to(roomId).emit('matchStarting', { count: 5 });
+
+        // 3. START GAME AFTER 5 SECONDS
+        setTimeout(() => {
+            this._launchGame(roomId);
+        }, 5000);
+    }
+
+    _launchGame(roomId) {
+        const room = this.rooms.get(roomId);
+        if (!room) return;
+        // Re-check active just in case
+        if (room.active) return;
+
         // Initialize Boards
         room.boards = [];
         room.scores = { white: 0, black: 0 };
         room.boardResults = [];
 
+        // (Players are ALREADY sorted in startGame)
+
         for (let i = 0; i < room.players.white.length; i++) {
             const whiteId = room.players.white[i];
             const blackId = room.players.black[i];
+
+            // Record Last Played Color
+            const whiteUser = room.usernames.get(whiteId);
+            const blackUser = room.usernames.get(blackId);
+            if (whiteUser) this.lastPlayedColor.set(whiteUser, 'white');
+            if (blackUser) this.lastPlayedColor.set(blackUser, 'black');
+
             const game = new Chess();
 
             room.boards.push({
@@ -474,6 +1171,11 @@ class GameManager {
 
         board.active = false;
 
+        // ELO UPDATE
+        if (room.metadata.isMatchmaking) {
+            this.updateElo(roomId, boardId, winner);
+        }
+
         // Update Team Score
         if (winner === 'white') room.scores.white += points;
         else if (winner === 'black') room.scores.black += points;
@@ -483,7 +1185,10 @@ class GameManager {
             room.scores.black += points;
         }
 
-        room.boardResults.push({ boardId, winner, reason, points });
+        const whiteName = room.usernames.get(board.whitePlayerId) || 'Unknown';
+        const blackName = room.usernames.get(board.blackPlayerId) || 'Unknown';
+
+        room.boardResults.push({ boardId, winner, reason, points, whiteName, blackName });
 
         // Notify players
         this.io.to(roomId).emit('boardGameOver', {
@@ -497,6 +1202,13 @@ class GameManager {
         // Check if Match Over (all boards done)
         if (room.boards.every(b => !b.active)) {
             this.endMatch(roomId);
+        } else {
+            // Partial ELO update? No, usually update at end of match or per board?
+            // For team chess, maybe per board is fine.
+            // Let's UPDATE ELO NOW for the finished board
+            if (room.metadata.isMatchmaking) {
+                this.updateElo(roomId, boardId, winner);
+            }
         }
     }
 
@@ -628,7 +1340,43 @@ class GameManager {
         this.handleDisconnect(socket);
     }
 
+    async updateElo(roomId, boardId, winner) {
+        const room = this.rooms.get(roomId);
+        const board = room.boards.find(b => b.id === boardId);
+        if (!room || !board) return;
+
+        const whiteUser = room.usernames.get(board.whitePlayerId);
+        const blackUser = room.usernames.get(board.blackPlayerId);
+        if (!whiteUser || !blackUser) return;
+
+        // Use stored values for calculation
+        // (Assuming they were loaded on join, otherwise default 300)
+        const whiteElo = this.userElos.get(whiteUser) || 300;
+        const blackElo = this.userElos.get(blackUser) || 300;
+
+        const expectedScoreWhite = elo.getExpected(whiteElo, blackElo);
+        const expectedScoreBlack = elo.getExpected(blackElo, whiteElo);
+
+        let whiteResult = 0.5;
+        if (winner === 'white') whiteResult = 1;
+        else if (winner === 'black') whiteResult = 0;
+
+        const newWhelo = elo.updateRating(expectedScoreWhite, whiteResult, whiteElo);
+        const newBkelo = elo.updateRating(expectedScoreBlack, 1 - whiteResult, blackElo);
+
+        // Update Memory
+        this.userElos.set(whiteUser, newWhelo);
+        this.userElos.set(blackUser, newBkelo);
+
+        // Update DB
+        await db.updateUserElo(whiteUser, newWhelo);
+        await db.updateUserElo(blackUser, newBkelo);
+
+        console.log(`[ELO] ${whiteUser} (${whiteElo}->${newWhelo}) vs ${blackUser} (${blackElo}->${newBkelo})`);
+    }
+
     handleDisconnect(socket) {
+        this.removeFromQueue(socket.id);
         this.rooms.forEach((room, roomId) => {
             // Remove from players lists
             let removed = false;
@@ -651,8 +1399,10 @@ class GameManager {
 
             // Always remove from usernames
             if (room.usernames.has(socket.id)) {
-                room.usernames.delete(socket.id);
-                // If not in any list, we still want to check for empty room
+                // Keep usernames for match history/reconnection name resolution
+                // room.usernames.delete(socket.id); 
+
+                // If not in any list, we still want to check for verified cleanup if room is really empty
                 if (!removed) removed = true;
             }
 
@@ -707,6 +1457,51 @@ class GameManager {
                 if (id !== socket.id) this.io.to(id).emit('voiceData', data);
             });
         }
+    }
+
+    handleOfferDraw(socket, { roomId }) {
+        const room = this.rooms.get(roomId);
+        if (!room || !room.active) return;
+
+        const board = room.boards.find(b => b.whitePlayerId === socket.id || b.blackPlayerId === socket.id);
+        if (!board || !board.active) return;
+
+        const offeringColor = board.whitePlayerId === socket.id ? 'white' : 'black';
+        const opponentColor = offeringColor === 'white' ? 'black' : 'white';
+        const opponentId = offeringColor === 'white' ? board.blackPlayerId : board.whitePlayerId;
+
+        board.drawOffer = offeringColor;
+        this.io.to(opponentId).emit('drawOffered', { color: offeringColor });
+    }
+
+    handleAcceptDraw(socket, { roomId }) {
+        const room = this.rooms.get(roomId);
+        if (!room || !room.active) return;
+
+        const board = room.boards.find(b => b.whitePlayerId === socket.id || b.blackPlayerId === socket.id);
+        if (!board || !board.active || !board.drawOffer) return;
+
+        // Verify it was offered TO this player
+        const acceptingColor = board.whitePlayerId === socket.id ? 'white' : 'black';
+        if (board.drawOffer === acceptingColor) return; // Cannot accept your own offer
+
+        console.log(`Draw accepted on board ${board.id}`);
+        this.handleBoardEnd(roomId, board.id, null, 'agreement', 1);
+        board.drawOffer = null; // Clear offer
+    }
+
+    handleRejectDraw(socket, { roomId }) {
+        const room = this.rooms.get(roomId);
+        if (!room || !room.active) return;
+
+        const board = room.boards.find(b => b.whitePlayerId === socket.id || b.blackPlayerId === socket.id);
+        if (!board || !board.active || !board.drawOffer) return;
+
+        const rejectingColor = board.whitePlayerId === socket.id ? 'white' : 'black';
+        const offererId = rejectingColor === 'white' ? board.blackPlayerId : board.whitePlayerId;
+
+        board.drawOffer = null;
+        this.io.to(offererId).emit('drawRejected');
     }
 
     handleResign(socket, { roomId }) {

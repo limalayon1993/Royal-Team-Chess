@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { User, Shield, Trophy, MessageSquare, ArrowLeft, Activity, Users } from 'lucide-react';
+import { User, Shield, Trophy, MessageSquare, ArrowLeft, Activity, Users, UserPlus } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { translations } from '../translations';
 import { EditProfileModal } from './EditProfileModal';
+import { FriendRequestModal } from './FriendRequestModal';
 
 export function UserProfile({ language }) {
     const { userId } = useParams();
@@ -13,6 +14,8 @@ export function UserProfile({ language }) {
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showEditModal, setShowEditModal] = useState(false);
+    const [showRequestModal, setShowRequestModal] = useState(false);
+    const [isFriend, setIsFriend] = useState(false);
     const [stats, setStats] = useState({
         points: 0,
         matchesPlayed: 0,
@@ -28,9 +31,39 @@ export function UserProfile({ language }) {
         fetchProfile();
     }, [userId]);
 
+    const handleRemoveFriend = async () => {
+        if (!confirm(t.removeFriend + '?')) return;
+
+        try {
+            const { error } = await supabase.rpc('remove_friend', {
+                user_a: currentUser.id,
+                user_b: userId
+            });
+
+            if (error) throw error;
+
+            setIsFriend(false);
+
+        } catch (err) {
+            console.error('Error removing friend:', err);
+        }
+    };
+
     const fetchProfile = async () => {
         try {
             setLoading(true);
+
+            // Check if already friends
+            if (currentUser && userId && currentUser.id !== userId) {
+                const { data: friendData } = await supabase
+                    .from('friends')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .eq('friend_id', userId)
+                    .maybeSingle(); // Use maybeSingle to avoid 406 on no rows
+
+                setIsFriend(!!friendData);
+            }
 
             // 1. Fetch Profile Data (including new columns if they exist)
             const { data: profileData, error: profileError } = await supabase
@@ -134,12 +167,30 @@ export function UserProfile({ language }) {
                                         </button>
                                     </>
                                 ) : (
-                                    <button
-                                        onClick={() => navigate('/', { state: { view: 'main' } })} // Fallback to main menu for now or open chat if passed props
-                                        className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all hover:scale-105 shadow-lg shadow-blue-900/30 flex items-center gap-2"
-                                    >
-                                        <MessageSquare size={18} /> {t.sendMessage || "Send Message"}
-                                    </button>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => navigate('/', { state: { view: 'main' } })}
+                                            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all hover:scale-105 shadow-lg shadow-blue-900/30 flex items-center gap-2"
+                                        >
+                                            <MessageSquare size={18} /> {t.sendMessage || "Send Message"}
+                                        </button>
+
+                                        {isFriend ? (
+                                            <button
+                                                onClick={handleRemoveFriend}
+                                                className="px-6 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold transition-all hover:scale-105 shadow-lg shadow-red-900/30 flex items-center gap-2"
+                                            >
+                                                <Users size={18} /> {t.removeFriend || "Remove Friend"}
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => setShowRequestModal(true)}
+                                                className="px-6 py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl font-bold transition-all hover:scale-105 shadow-lg shadow-green-900/30 flex items-center gap-2"
+                                            >
+                                                <UserPlus size={18} /> {t.sendFriendRequest || "Send Friend Request"}
+                                            </button>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -166,8 +217,8 @@ export function UserProfile({ language }) {
                         <div className="flex items-center gap-3 mb-2 text-slate-400 uppercase text-xs font-bold tracking-wider">
                             <Trophy size={16} className="text-yellow-400" /> ELO
                         </div>
-                        <div className="text-4xl font-black text-white mb-1 group-hover:text-yellow-300 transition-colors text-base p-2">
-                            Coming Soon
+                        <div className="text-4xl font-black text-white mb-1 group-hover:text-yellow-300 transition-colors">
+                            {stats.elo}
                         </div>
                         <div className="text-sm text-slate-500">
                             Global Rating
@@ -213,6 +264,14 @@ export function UserProfile({ language }) {
                 isOpen={showEditModal}
                 onClose={() => setShowEditModal(false)}
                 profile={profile}
+                language={language}
+            />
+
+            <FriendRequestModal
+                isOpen={showRequestModal}
+                onClose={() => setShowRequestModal(false)}
+                currentUser={currentUser}
+                targetUser={profile}
                 language={language}
             />
         </div >

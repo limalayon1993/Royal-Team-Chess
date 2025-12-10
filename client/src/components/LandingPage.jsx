@@ -9,18 +9,29 @@ import { SocialPanel } from './SocialPanel';
 import { ChatModal } from './ChatModal';
 import { useAuth } from '../context/AuthContext';
 
-export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList, onCreateRoom, onJoinRoom, onRefreshRooms, username }) {
+export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList, onCreateRoom, onJoinRoom, onRefreshRooms, username, user, initialView = 'landing', socket, party, onPartyCreate, onPartyInvite, onPartyJoin, onPartyLeave, onOpenParty, onJoinParty, onAcceptProposal }) {
     const navigate = useNavigate();
     const location = useLocation();
     const t = translations[language];
-    const { user, signOut } = useAuth();
+    const { user: contextUser, signOut } = useAuth();
+
+    // Prefer prop user, fallback to context
+    const currentUser = user || contextUser;
+
     const [showContact, setShowContact] = useState(false);
     const [showChat, setShowChat] = useState(false);
     const [chatTargetUser, setChatTargetUser] = useState(null);
     const [showAuth, setShowAuth] = useState(false);
     const [authView, setAuthView] = useState('login');
-    const [menuView, setMenuView] = useState('landing');
+    const [menuView, setMenuView] = useState(initialView);
     const [unreadCount, setUnreadCount] = useState(0); // Added missing state
+
+    useEffect(() => {
+        if (!currentUser && menuView === 'main') {
+            setMenuView('landing');
+            window.history.pushState({}, '', '/');
+        }
+    }, [currentUser, menuView]);
 
     // Handle navigation state and URL routes
     useEffect(() => {
@@ -45,6 +56,31 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
     const [browserSearch, setBrowserSearch] = useState('');
     const [selectedRoom, setSelectedRoom] = useState(null);
     const [joinPassword, setJoinPassword] = useState('');
+
+    // Matchmaking State
+    const [searchStatus, setSearchStatus] = useState('idle'); // idle, searching, found
+
+    // Socket Listeners for Matchmaking
+    useEffect(() => {
+        console.log("LandingPage mounted. Socket:", socket ? "Connected (" + socket.id + ")" : "Undefined");
+        if (!socket) return;
+
+        const handleMatchStatus = (data) => {
+            console.log("Matchmaking status:", data);
+            if (data.status === 'searching') setSearchStatus('searching');
+            if (data.status === 'found') {
+                setSearchStatus('found');
+                // The joinRoom handling logic elsewhere should pick up the room join
+                // But we can also set timeout to reset status or wait for 'joinedRoom'
+            }
+        };
+
+        socket.on('matchmakingStatus', handleMatchStatus);
+
+        return () => {
+            socket.off('matchmakingStatus', handleMatchStatus);
+        };
+    }, []);
 
     // Fetch unread messages count
     useEffect(() => {
@@ -72,8 +108,15 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
             })
             .subscribe();
 
+        // Custom event for instant local updates (when ChatModal marks as read)
+        const handleBadgeUpdate = () => fetchUnread();
+        window.addEventListener('messages-read', handleBadgeUpdate);
+        window.addEventListener('friend-updated', handleBadgeUpdate); // Also update on friend events if relevant
+
         return () => {
             supabase.removeChannel(channel);
+            window.removeEventListener('messages-read', handleBadgeUpdate);
+            window.removeEventListener('friend-updated', handleBadgeUpdate);
         };
     }, [user]);
 
@@ -233,7 +276,7 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
             </div>
 
             {/* Main Menu Layout */}
-            {menuView === 'main' && (
+            {(menuView === 'main' || menuView === 'landing') && (
                 <div className="w-full max-w-[1600px] mx-auto px-6 flex gap-8">
 
                     {/* Main Cards Grid - Takes up remaining space */}
@@ -318,9 +361,32 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                                 </p>
                             </div>
                         </button>
-                    </div>
 
-                    {/* Social Panel - Right Side */}
+                        {/* Party Button */}
+                        <button
+                            onClick={onOpenParty} // Opens modal
+                            className={`mt-8 w-full h-[120px] rounded-3xl overflow-hidden transition-all duration-500 border text-left flex items-center px-8 gap-6
+                            ${party
+                                    ? 'bg-indigo-900/40 border-indigo-500 hover:bg-indigo-900/60 hover:shadow-lg hover:shadow-indigo-500/30'
+                                    : 'bg-slate-900 border-slate-800 hover:border-slate-700 opacity-60 hover:opacity-100 hover:bg-slate-800'
+                                }`}
+                        >
+                            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg transition-transform duration-300 ${party ? 'bg-indigo-600 shadow-indigo-500/50' : 'bg-slate-700'}`}>
+                                {party ? <Crown size={32} className="text-white fill-current" /> : <UserPlus size={32} className="text-slate-400" />}
+                            </div>
+                            <div>
+                                <h3 className={`text-2xl font-black mb-1 ${party ? 'text-white' : 'text-slate-400'}`}>
+                                    {party ? (t.partyActive || "Party Active") : "Party"}
+                                </h3>
+                                <p className="text-sm font-medium opacity-80 text-slate-400">
+                                    {party ? `${party.members.length} Members • ${party.leaderId === socket?.id ? "You are Leader" : "Member"}` : "Invite friends via Social Panel."}
+                                </p>
+                            </div>
+                        </button>
+
+                    </div>
+                    {/* End Main Cards Grid */}
+
                     {/* Social Panel - Right Side */}
                     <SocialPanel
                         language={language}
@@ -328,24 +394,32 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                             setChatTargetUser(targetUser);
                             setShowChat(true);
                         }}
+                        onInvite={(targetUser) => onPartyInvite(targetUser)}
+                        socket={socket}
                     />
                 </div>
             )}
             {/* End Main Menu Grid */}
 
-            <ChatModal
-                isOpen={showChat}
-                onClose={() => {
-                    setShowChat(false);
-                    setChatTargetUser(null);
-                }}
-                language={language}
-                currentUser={user}
-                initialChatUser={chatTargetUser}
-            />
+            {showChat && (
+                <ChatModal
+                    isOpen={showChat}
+                    onClose={() => {
+                        setShowChat(false);
+                        setChatTargetUser(null);
+                    }}
+                    language={language}
+                    currentUser={currentUser}
+                    initialChatUser={chatTargetUser}
+                    onJoinParty={onJoinParty}
+                    onAcceptProposal={onAcceptProposal}
+                    party={party}
+                />
+            )}
 
             <button
                 onClick={() => {
+                    signOut();
                     setMenuView('landing');
                     window.history.pushState({}, '', '/');
                 }}
@@ -357,7 +431,7 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
     );
 
     const renderPlayMenu = () => (
-        <div className="max-w-6xl mx-auto w-full px-6 animate-fade-in flex flex-col items-center justify-center min-h-[600px]">
+        <div className="max-w-6xl mx-auto w-full px-6 animate-fade-in flex flex-col items-center justify-center min-h-[600px] pt-32">
             <div className="text-center mb-12">
                 <h2 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">
                     {t.mainMenuTitle || "Choose Your Battlefield"}
@@ -474,6 +548,7 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                                     onChange={(e) => setTeamSize(e.target.value)}
                                     className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-4 px-6 text-lg text-white appearance-none focus:outline-none focus:border-emerald-500 transition-all cursor-pointer"
                                 >
+                                    <option value="1">1 vs 1</option>
                                     <option value="2">2 vs 2</option>
                                     <option value="3">3 vs 3</option>
                                     <option value="4">4 vs 4</option>
@@ -609,11 +684,14 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                     {roomsList.filter(r => r.name.toLowerCase().includes(browserSearch.toLowerCase())).map(room => (
                         <div key={room.id} className="bg-slate-800/40 hover:bg-slate-800/80 p-6 rounded-2xl border border-slate-700/50 hover:border-purple-500/50 transition-all flex items-center justify-between group hover:shadow-lg hover:shadow-purple-900/10 hover:translate-x-1">
                             <div className="flex items-center gap-6">
-                                <div className={`p-3 rounded-xl ${room.isPrivate ? 'bg-red-900/20 text-red-400' : 'bg-green-900/20 text-green-400'}`}>
-                                    {room.isPrivate ? <Lock size={24} /> : <Unlock size={24} />}
+                                <div className={`p-3 rounded-xl ${room.isMatchmaking ? 'bg-blue-600 text-white' : room.isPrivate ? 'bg-red-900/20 text-red-400' : 'bg-green-900/20 text-green-400'}`}>
+                                    {room.isMatchmaking ? <Zap size={24} /> : room.isPrivate ? <Lock size={24} /> : <Unlock size={24} />}
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-xl text-white mb-1 group-hover:text-purple-300 transition-colors">{room.name}</h3>
+                                    <h3 className="font-bold text-xl text-white mb-1 group-hover:text-purple-300 transition-colors flex items-center gap-2">
+                                        {room.name}
+                                        {room.isMatchmaking && <span className="text-xs bg-blue-600 px-2 py-0.5 rounded text-white font-bold tracking-wider">RANKED</span>}
+                                    </h3>
                                     <div className="flex items-center gap-4 text-sm text-slate-400">
                                         <span className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded-lg border border-slate-700/50" title={t.players || "Players"}>
                                             <Users size={14} className="text-blue-400" /> {room.players}/{room.maxPlayers}
@@ -630,12 +708,29 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                                     </div>
                                 </div>
                             </div>
-                            <button
-                                onClick={() => handleJoinRoom(room.id, room.isPrivate)}
-                                className="px-8 py-3 bg-slate-700 hover:bg-purple-600 text-white rounded-xl font-bold transition-all hover:scale-105 hover:shadow-lg hover:shadow-purple-900/30 flex items-center gap-2"
-                            >
-                                {t.join || "Join"} <Play size={16} fill="currentColor" />
-                            </button>
+                            {room.isMatchmaking && !room.active ? (
+                                <button
+                                    disabled
+                                    className="px-8 py-3 bg-slate-800 text-slate-500 rounded-xl font-bold border border-slate-700 cursor-not-allowed"
+                                >
+                                    {t.matchmakingOnly || "Matchmaking Only"}
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => handleJoinRoom(room.id, room.isPrivate)}
+                                    className="px-8 py-3 bg-slate-700 hover:bg-purple-600 text-white rounded-xl font-bold transition-all hover:scale-105 hover:shadow-lg hover:shadow-purple-900/30 flex items-center gap-2"
+                                >
+                                    {room.active ? (
+                                        <>
+                                            {t.spectate || "Spectate"} <Eye size={16} fill="currentColor" />
+                                        </>
+                                    ) : (
+                                        <>
+                                            {t.join || "Join"} <Play size={16} fill="currentColor" />
+                                        </>
+                                    )}
+                                </button>
+                            )}
                         </div>
                     ))}
                     {roomsList.length === 0 && (
@@ -702,7 +797,11 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                 </p>
             </div>
 
-            <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 w-full shadow-2xl mb-8">
+            <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 w-full shadow-2xl mb-8 relative overflow-hidden">
+
+                {/* Searching Overlay */}
+
+
                 <div className="grid md:grid-cols-3 gap-6">
                     {/* Time Preference */}
                     <div>
@@ -728,36 +827,47 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
 
                     {/* Team Size Preference */}
                     <div>
-                        <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.teamSize || "Team Size"}</label>
+                        <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">
+                            {t.teamSize || "Team Size"}
+                        </label>
                         <div className="relative">
                             <select
-                                value={quickTeamSize}
+                                value={party ? party.members.length.toString() : quickTeamSize}
                                 onChange={(e) => setQuickTeamSize(e.target.value)}
-                                className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:border-blue-500 cursor-pointer"
+                                disabled={!!party}
+                                className={`w-full bg-slate-950/50 border rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:border-blue-500 cursor-pointer
+                                   ${party ? 'border-indigo-500/50 text-indigo-200 cursor-not-allowed' : 'border-slate-700'}
+                                `}
                             >
                                 <option value="any">Any Size</option>
+                                <option value="1">1 vs 1</option>
                                 <option value="2">2 vs 2</option>
                                 <option value="3">3 vs 3</option>
                                 <option value="4">4 vs 4</option>
                             </select>
-                            <Users className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+                            {party ? <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-400" size={16} /> : <Users className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />}
                         </div>
                     </div>
 
                     {/* Language Preference */}
                     <div>
-                        <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.language || "Language"}</label>
+                        <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">
+                            {t.language || "Language"}
+                        </label>
                         <div className="relative">
                             <select
-                                value={quickLanguage}
+                                value={party ? 'any' : quickLanguage}
                                 onChange={(e) => setQuickLanguage(e.target.value)}
-                                className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:border-blue-500 cursor-pointer"
+                                disabled={!!party}
+                                className={`w-full bg-slate-950/50 border rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:border-blue-500 cursor-pointer
+                                   ${party ? 'border-indigo-500/50 text-indigo-200 cursor-not-allowed' : 'border-slate-700'}
+                                `}
                             >
                                 <option value="any">Any Language</option>
                                 <option value="en">English</option>
                                 <option value="es">Español</option>
                             </select>
-                            <Globe className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+                            {party ? <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-400" size={16} /> : <Globe className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />}
                         </div>
                     </div>
                 </div>
@@ -772,46 +882,63 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                 </button>
                 <button
                     onClick={() => {
-                        // Filter rooms based on preferences
-                        const availableRooms = roomsList.filter(r => {
-                            if (r.isPrivate) return false;
-                            if (r.players >= r.maxPlayers) return false;
+                        // Check if Guest
+                        if (!user) {
+                            alert("Matchmaking (Ranked) is only available for registered users. Please Log In or Sign Up to play Ranked.");
+                            return;
+                        }
 
-                            // Time Filter
-                            if (quickTime !== 'any') {
-                                const requiredSeconds = parseInt(quickTime) * 60;
-                                if (r.settings.time !== requiredSeconds) return false;
-                            }
+                        // Server-side matchmaking
+                        console.log('Sending findMatch event', { username, socketId: socket?.id });
+                        if (socket) {
+                            // If party, use Party Logic constraints
+                            const searchSettings = party ? {
+                                time: quickTime,
+                                teamSize: party.members.length.toString(),
+                                language: 'any'
+                            } : {
+                                time: quickTime,
+                                teamSize: quickTeamSize,
+                                language: quickLanguage
+                            };
 
-                            // Team Size Filter
-                            if (quickTeamSize !== 'any') {
-                                // Convert team size (e.g. 2) to max players (e.g. 4)
-                                const requiredMax = parseInt(quickTeamSize) * 2;
-                                if (r.maxPlayers !== requiredMax) return false;
-                            }
-
-                            // Language Filter
-                            if (quickLanguage !== 'any') {
-                                if (r.language !== quickLanguage) return false;
-                            }
-
-                            return true;
-                        });
-
-                        if (availableRooms.length > 0) {
-                            // Pick random from matches
-                            const randomRoom = availableRooms[Math.floor(Math.random() * availableRooms.length)];
-                            onJoinRoom(randomRoom.id);
+                            socket.emit('findMatch', searchSettings);
+                            setSearchStatus('searching');
                         } else {
-                            alert(t.noRoomsFound || "No rooms found matching criteria.");
+                            console.error('Socket is not connected');
                         }
                     }}
-                    className="flex-[2] py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-blue-900/30 flex items-center justify-center gap-2"
+                    disabled={party && party.leaderId !== socket?.id}
+                    className={`
+                        relative px-12 py-5 rounded-2xl font-black text-xl tracking-wide shadow-xl transition-all hover:scale-105 active:scale-95 flex items-center gap-3
+                        ${party && party.leaderId !== socket?.id
+                            ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                            : searchStatus === 'searching'
+                                ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-900/40' // Stop Search
+                                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/40' // Start Search
+                        }
+                    `}
                 >
-                    {t.findMatch || "Find Match"} <Search size={20} />
+                    {party && party.leaderId !== socket?.id ? (
+                        <>
+                            <Lock size={24} />
+                            {t.waitingForLeader || "WAITING FOR LEADER"}
+                        </>
+                    ) : searchStatus === 'searching' ? (
+                        <>
+                            <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+                            {t.cancelSearch || "CANCEL SEARCH"}
+                        </>
+                    ) : (
+                        <>
+                            <Zap size={24} fill="currentColor" />
+                            {t.findMatch || "FIND MATCH"}
+                        </>
+                    )}
                 </button>
             </div>
         </div>
+
     );
 
     return (
@@ -1125,6 +1252,23 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                 </div>
                 <p>&copy; 2025 Royal Team Chess. All rights reserved.</p>
             </footer>
+            {/* Full Screen Searching Overlay */}
+            {searchStatus === 'searching' && (
+                <div className="fixed inset-0 bg-slate-950/95 z-[100] flex flex-col items-center justify-center animate-fade-in backdrop-blur-sm">
+                    <div className="w-24 h-24 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-8 shadow-lg shadow-blue-500/20"></div>
+                    <h3 className="text-4xl font-black text-white mb-3 tracking-tight">Searching for Match...</h3>
+                    <p className="text-slate-400 mb-10 text-xl font-medium">Looking for a worthy opponent</p>
+                    <button
+                        onClick={() => {
+                            if (socket) socket.emit('cancelMatchmaking');
+                            setSearchStatus('idle');
+                        }}
+                        className="px-10 py-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 hover:border-red-500/60 rounded-xl font-bold transition-all hover:scale-105"
+                    >
+                        Cancel Search
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
