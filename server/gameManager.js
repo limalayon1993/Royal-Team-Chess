@@ -362,7 +362,7 @@ class GameManager {
         this.io.emit('roomsList', rooms);
     }
 
-    handleFindMatch(socket, { username, settings }) {
+    async handleFindMatch(socket, { username, settings }) {
         try {
             console.log(`[Matchmaking] ${username} (${socket.id}) searching for match. Settings:`, settings);
             if (!settings) {
@@ -372,7 +372,18 @@ class GameManager {
             }
 
             // 0. Get User ELO (Needed for Dynamic Range)
-            const userElo = this.userElos.get(username) || 300;
+            // Fix: Fetch from DB if not in memory (prevent "300 ELO" bug)
+            let userElo = this.userElos.get(username);
+            if (userElo === undefined) {
+                try {
+                    userElo = await db.getUserElo(username);
+                    this.userElos.set(username, userElo);
+                    console.log(`[Matchmaking] Loaded ELO for ${username}: ${userElo}`);
+                } catch (dbErr) {
+                    console.error('[Matchmaking] Failed to fetch ELO, defaulting to 300', dbErr);
+                    userElo = 300;
+                }
+            }
 
             // 1. Determine Group (Single or Party)
             let group = [];
@@ -393,12 +404,24 @@ class GameManager {
                 console.log(`[Matchmaking] processing Party ${party.id} (Size: ${party.members.length})`);
 
                 // Build Group from Party Members
-                group = party.members.map(m => ({
-                    socket: this.io.sockets.sockets.get(m.socketId), // Live Socket
-                    username: m.username,
-                    elo: this.userElos.get(m.username) || 300,
-                    settings: settings // Shared settings from Leader
-                })).filter(m => m.socket); // Filter disconnected?
+                group = await Promise.all(party.members.map(async m => {
+                    let mElo = this.userElos.get(m.username);
+                    if (mElo === undefined) {
+                        try {
+                            mElo = await db.getUserElo(m.username);
+                            this.userElos.set(m.username, mElo);
+                        } catch (e) { mElo = 300; }
+                    }
+
+                    return {
+                        socket: this.io.sockets.sockets.get(m.socketId), // Live Socket
+                        username: m.username,
+                        elo: mElo,
+                        settings: settings // Shared settings from Leader
+                    };
+                }));
+
+                group = group.filter(m => m.socket); // Filter disconnected?
 
                 if (group.length !== party.members.length) {
                     socket.emit('error', 'Some party members are offline');
