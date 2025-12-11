@@ -21,6 +21,37 @@ class PartyManager {
         this.connectedUsers.set(socket.id, username);
         this.onlineUsers.set(username.toLowerCase(), socket.id);
 
+        // CHECK FOR EXISTING PARTY MEMBERSHIP (Reconnection Fix)
+        // If this user was in a party but disconnected, their socketId in party.members is stale.
+        // We find the party by username and update the socket ID.
+        for (const [pId, party] of this.parties.entries()) {
+            const memberIndex = party.members.findIndex(m => m.username === username);
+            if (memberIndex !== -1) {
+                // Found them! Update socket ID
+                const oldSocketId = party.members[memberIndex].socketId;
+
+                // If they were leader, update leaderId
+                if (party.leaderId === oldSocketId) {
+                    party.leaderId = socket.id;
+                    console.log(`[Party] Leader ${username} reconnected. Updated LeaderID.`);
+                }
+
+                party.members[memberIndex].socketId = socket.id;
+
+                // Map new socket to party
+                this.socketToParty.set(socket.id, pId);
+
+                // Re-join socket room
+                socket.join(pId);
+
+                console.log(`[Party] ${username} reconnected to Party ${pId}`);
+
+                // Broadcast update so client has correct Leader ID
+                this.emitPartyUpdate(pId);
+                break;
+            }
+        }
+
         if (userId) {
             this.userMap.set(userId, { socketId: socket.id, username, status: 'online' });
 

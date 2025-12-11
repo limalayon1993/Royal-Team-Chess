@@ -1525,6 +1525,40 @@ class GameManager {
         return base + growth;
     }
 
+    removeFromQueue(socketId) {
+        // Check if user is in party
+        const party = this.partyManager.getParty(socketId);
+
+        if (party) {
+            console.log(`[Matchmaking] Party ${party.id} canceled search`);
+            // Remove ALL members from queue
+            party.members.forEach(m => {
+                // Remove from Map
+                // Note: matchmakingQueue stores by socketId key
+                if (this.matchmakingQueue.has(m.socketId)) {
+                    this.matchmakingQueue.delete(m.socketId);
+
+                    // Notify client
+                    const memberSocket = this.io.sockets.sockets.get(m.socketId);
+                    if (memberSocket) {
+                        memberSocket.emit('matchmakingStatus', { status: 'cancelled' });
+                    }
+                }
+            });
+            // Update party status
+            party.isSearching = false;
+            this.partyManager.emitPartyUpdate(party.id);
+        } else {
+            // Solo
+            if (this.matchmakingQueue.has(socketId)) {
+                console.log(`[Matchmaking] User ${socketId} canceled search`);
+                this.matchmakingQueue.delete(socketId);
+                const socket = this.io.sockets.sockets.get(socketId);
+                if (socket) socket.emit('matchmakingStatus', { status: 'cancelled' });
+            }
+        }
+    }
+
     handleResign(socket, { roomId }) {
         const room = this.rooms.get(roomId);
         if (!room || !room.active) return;
