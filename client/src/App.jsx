@@ -23,6 +23,7 @@ function RoyalTeamChess({
 }) {
   console.log('[Royal] Render. handleAcceptProposal present?', !!handleAcceptProposal);
   console.log('[Royal] Render. handleAcceptProposal type:', typeof handleAcceptProposal);
+  console.log('[Royal] Render. sendPartyProposalMessage type:', typeof sendPartyProposalMessage);
   const { user, recoveryMode, setRecoveryMode } = useAuth();
 
 
@@ -833,7 +834,20 @@ function AppContent({
             />
           }
         />
-        <Route path="*" element={<RoyalTeamChess socket={socket} language={language} toggleLanguage={toggleLanguage} party={party} partyChat={partyChat} setShowPartyModal={setShowPartyModal} pendingInviteRef={pendingInviteRef} />} />
+        <Route path="*" element={
+          <RoyalTeamChess
+            socket={socket}
+            language={language}
+            toggleLanguage={toggleLanguage}
+            party={party}
+            partyChat={partyChat}
+            setShowPartyModal={setShowPartyModal}
+            pendingInviteRef={pendingInviteRef}
+            handleAcceptProposal={handleAcceptProposal}
+            sendPartyProposalMessage={sendPartyProposalMessage}
+            sendPartyInviteMessage={sendPartyInviteMessage}
+          />
+        } />
       </Routes>
       {partyModals}
     </>
