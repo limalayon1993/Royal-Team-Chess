@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+console.log('🚀 APP VERSION: DEBUG_Refactor_v5_' + Date.now());
 import io from 'socket.io-client';
 import { Lobby } from './components/Lobby';
 import { GameRoom } from './components/GameRoom';
