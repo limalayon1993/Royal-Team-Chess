@@ -1504,6 +1504,14 @@ class GameManager {
         this.io.to(offererId).emit('drawRejected');
     }
 
+    calculateEloThreshold(waitTime) {
+        // Base tolerance: 100 ELO
+        // Increase by 10 ELO for every second waited
+        const base = 100;
+        const growth = Math.floor(waitTime) * 10;
+        return base + growth;
+    }
+
     handleResign(socket, { roomId }) {
         const room = this.rooms.get(roomId);
         if (!room || !room.active) return;
