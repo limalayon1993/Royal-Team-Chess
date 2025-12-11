@@ -62,6 +62,7 @@ function RoyalTeamChess({
   // const pendingInviteRef = useRef(null); // Managed by AppContent
 
   useEffect(() => {
+    console.log('%c [APP VERSION] DEBUG_FRIENDS_V3 ', 'background: #222; color: #bada55; font-size: 20px');
     if (user?.user_metadata?.username) {
       setUsername(user.user_metadata.username);
     }

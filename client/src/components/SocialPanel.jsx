@@ -68,8 +68,12 @@ export function SocialPanel({ language, onOpenChat, onInvite, socket }) {
                     .select('friend_id')
                     .eq('user_id', currentUser.id);
 
-                if (friendsError) console.error('[SocialPanel] Friends Query Error:', friendsError);
-                console.log('[SocialPanel] Friends DB Relations:', friendsData?.length, friendsData);
+                if (friendsError) {
+                    console.error('[SocialPanel] Friends Query Error:', friendsError);
+                    alert('Error fetching friends: ' + friendsError.message); // Visible alert
+                }
+                console.log('[SocialPanel DEBUG_V2] Friends DB Relations:', friendsData?.length, friendsData);
+                console.log('[SocialPanel DEBUG_V2] Current User ID:', currentUser.id);
 
                 if (friendsData && friendsData.length > 0) {
                     const friendIds = friendsData.map(f => f.friend_id);
