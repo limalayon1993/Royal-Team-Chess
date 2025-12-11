@@ -388,7 +388,12 @@ export function ChatModal({ isOpen, onClose, language, currentUser, initialChatU
                                                                 <button
                                                                     onClick={() => {
                                                                         console.log('[ChatModal] Accept clicked for:', senderUsername);
-                                                                        if (onAcceptProposal) onAcceptProposal(senderUsername);
+                                                                        console.log('[ChatModal] onAcceptProposal type:', typeof onAcceptProposal);
+                                                                        if (typeof onAcceptProposal === 'function') {
+                                                                            onAcceptProposal(senderUsername);
+                                                                        } else {
+                                                                            console.error('[ChatModal] CRITICAL: onAcceptProposal is NOT a function!', onAcceptProposal);
+                                                                        }
                                                                     }}
                                                                     className="w-full py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-xs font-bold transition-all shadow-lg shadow-green-900/40"
                                                                 >

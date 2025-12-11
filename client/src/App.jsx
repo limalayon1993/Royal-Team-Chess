@@ -21,14 +21,13 @@ function RoyalTeamChess({
   handleAcceptProposal, sendPartyProposalMessage, sendPartyInviteMessage
 }) {
   console.log('[Royal] Render. handleAcceptProposal present?', !!handleAcceptProposal);
-  console.log('[Royal] Render. handleAcceptProposal is:', handleAcceptProposal);
+  console.log('[Royal] Render. handleAcceptProposal type:', typeof handleAcceptProposal);
   const { user, recoveryMode, setRecoveryMode } = useAuth();
 
   // ...
 
   export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList, onCreateRoom, onJoinRoom, onRefreshRooms, username, user, initialView = 'landing', socket, party, onPartyCreate, onPartyInvite, onPartyJoin, onPartyLeave, onOpenParty, onJoinParty, onAcceptProposal }) {
-    console.log('[Landing] Render. onAcceptProposal present?', !!onAcceptProposal);
-    console.log('[Landing] Render. onAcceptProposal is:', onAcceptProposal);
+    console.log('[Landing] Render. onAcceptProposal type:', typeof onAcceptProposal);
     // ...
 
     // ... in AppContent ...
