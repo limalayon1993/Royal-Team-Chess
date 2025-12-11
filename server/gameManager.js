@@ -360,7 +360,12 @@ class GameManager {
 
     handleFindMatch(socket, { username, settings }) {
         try {
-            console.log(`[Matchmaking] ${username} (${socket.id}) searching for match:`, settings);
+            console.log(`[Matchmaking] ${username} (${socket.id}) searching for match. Settings:`, settings);
+            if (!settings) {
+                console.error('[Matchmaking] Error: Settings missing in findMatch payload');
+                socket.emit('error', 'Matchmaking Error: Invalid Settings');
+                return;
+            }
 
             // 0. Get User ELO (Needed for Dynamic Range)
             const userElo = this.userElos.get(username) || 300;

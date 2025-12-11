@@ -903,7 +903,11 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                                 language: quickLanguage
                             };
 
-                            socket.emit('findMatch', searchSettings);
+                            // Correctly structure the payload for the server
+                            socket.emit('findMatch', {
+                                username: username || user?.user_metadata?.username,
+                                settings: searchSettings
+                            });
                             setSearchStatus('searching');
                         } else {
                             console.error('Socket is not connected');
