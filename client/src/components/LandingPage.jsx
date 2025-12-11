@@ -10,6 +10,7 @@ import { ChatModal } from './ChatModal';
 import { useAuth } from '../context/AuthContext';
 
 export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList, onCreateRoom, onJoinRoom, onRefreshRooms, username, user, initialView = 'landing', socket, party, onPartyCreate, onPartyInvite, onPartyJoin, onPartyLeave, onOpenParty, onJoinParty, onAcceptProposal }) {
+    console.log('[Landing] Render. onAcceptProposal present?', !!onAcceptProposal);
     const navigate = useNavigate();
     const location = useLocation();
     const t = translations[language];
