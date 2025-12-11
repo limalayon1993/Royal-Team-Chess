@@ -35,12 +35,14 @@ async function getUserElo(username) {
         if (error) {
             // Check if error is "PGRST116" (User not found)
             if (error.code === 'PGRST116') {
+                console.log(`[DB] User ${username} not found, returning default 300`);
                 return 300; // Default for new found users
             }
             console.error(`[DB] Error fetching ELO for ${username}:`, error.message);
             return 300;
         }
 
+        console.log(`[DB] getUserElo(${username}) returned:`, data?.elo);
         return data?.elo || 300;
     } catch (err) {
         console.error(`[DB] Unexpected error getUserElo for ${username}:`, err);
