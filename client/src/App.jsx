@@ -61,21 +61,27 @@ function RoyalTeamChess({
     }
 
     if (socket && user?.id && user?.user_metadata?.username) {
-      // Prevent duplicate registration for the same user ID
-      if (lastRegisteredId.current === user.id) return;
+      const handleRegister = () => {
+        if (!socket.connected) return;
 
-      console.log('[App] Sending registerUser:', {
-        username: user.user_metadata.username,
-        userId: user.id
-      });
-      if (!user.user_metadata?.username) {
-        console.error('[App] CRITICAL: Username is missing in user metadata!', user);
+        console.log('[App] 🔄 Improving Connection Reliability - Registering User:', user.user_metadata.username);
+        socket.emit('registerUser', {
+          username: user.user_metadata.username,
+          userId: user.id
+        });
+      };
+
+      // 1. Register immediately if already connected
+      if (socket.connected) {
+        handleRegister();
       }
-      socket.emit('registerUser', {
-        username: user.user_metadata.username,
-        userId: user.id
-      });
-      lastRegisteredId.current = user.id;
+
+      // 2. Listen for 'connect' event (handles disconnections/reconnections)
+      socket.on('connect', handleRegister);
+
+      return () => {
+        socket.off('connect', handleRegister);
+      };
     }
   }, [user, socket]);
 
