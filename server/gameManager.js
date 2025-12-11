@@ -93,6 +93,7 @@ class GameManager {
                 db.getUserElo(username).then(elo => {
                     this.userElos.set(username, elo);
                     console.log(`[ELO] Loaded for ${username}: ${elo}`);
+                    this.emitRoomUpdate(roomId); // Force UI update immediately
                 });
             }
 
@@ -213,8 +214,7 @@ class GameManager {
             db.getUserElo(username).then(elo => {
                 this.userElos.set(username, elo);
                 console.log(`[GameManager] Async ELO update for ${username}: ${elo}`);
-                // Optional: Emit room update immediately if it changes? 
-                // Might be too spammy but ensures consistency.
+                this.emitRoomUpdate(roomId); // Force UI update immediately
             });
         }
 
