@@ -454,6 +454,7 @@ class GameManager {
 
         } catch (err) {
             console.error('Error in handleFindMatch:', err);
+            socket.emit('debug_log', `[Server Error] handleFindMatch CRASH: ${err.message}\n${err.stack}`);
             socket.emit('error', 'Failed to search for match');
         }
     }

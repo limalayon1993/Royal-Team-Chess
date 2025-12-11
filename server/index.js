@@ -21,8 +21,12 @@ const gameManager = new GameManager(io);
 const partyManager = new PartyManager(io, gameManager);
 gameManager.setPartyManager(partyManager);
 
+const SERVER_VERSION = 'v_DEBUG_Matchmaking_' + Date.now();
+
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
+    socket.emit('server_version', SERVER_VERSION);
+    socket.emit('debug_log', `[Server] Connected to ${SERVER_VERSION}`);
 
     // User Registration (for Parties/Invites)
     socket.on('registerUser', (username) => {

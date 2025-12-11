@@ -112,6 +112,10 @@ function RoyalTeamChess({
       setStartingCountdown(null); // Reset on join
     });
 
+    socket.on('server_version', (v) => {
+      console.log('%c[Server Version] ' + v, 'background: #00bcd4; color: black; font-weight: bold; padding: 2px 4px;');
+    });
+
     socket.on('roomUpdate', (data) => {
       setRoomData(data);
       if (data.hostId) {
