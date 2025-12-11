@@ -115,6 +115,7 @@ class GameManager {
             this.broadcastRoomsList();
         } catch (err) {
             console.error('Error in createRoom:', err);
+            socket.emit('debug_log', `[Server Error] createRoom CRASH: ${err.message}\n${err.stack}`);
             socket.emit('error', 'Failed to create room');
         }
     }
@@ -163,7 +164,7 @@ class GameManager {
             roomsList.push({
                 id,
                 name: room.metadata.name,
-                language: room.metadata.language,
+                language: room.metadata.language || 'en', // Default if removed
                 players: room.players.white.length + room.players.black.length,
                 maxPlayers: room.settings.teamSize * 2,
                 settings: room.settings,
@@ -833,7 +834,13 @@ class GameManager {
         const eloThreshold = this.calculateEloThreshold(maxWait);
         const eloDiff = Math.abs(e1.elo - e2.elo); // Using Avg ELO
 
+        console.log(`[Matchmaking] Compat Check:
+          A: ${e1.username} (${e1.elo}) Wait: ${waitA.toFixed(1)}s
+          B: ${e2.username} (${e2.elo}) Wait: ${waitB.toFixed(1)}s
+          Diff: ${eloDiff} | Threshold: ${eloThreshold} | MaxWait: ${maxWait.toFixed(1)}s`);
+
         if (eloDiff > eloThreshold) {
+            // console.log('[Matchmaking] ELO Diff too high');
             return false;
         }
 
