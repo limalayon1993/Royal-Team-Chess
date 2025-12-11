@@ -681,6 +681,10 @@ function AppContent({
   useEffect(() => {
     if (!socket) return;
 
+    socket.on('debug_log', (msg) => {
+      console.log('%c[Server Debug]', 'background: #222; color: #bada55', msg);
+    });
+
     socket.on('partyInvitation', (invite) => {
       console.log('[App] Party Invitation:', invite);
       setShowPartyInvite(invite); // Show popup or just use chat? Re-enabling popup for invites for now as per logic, or only chat?

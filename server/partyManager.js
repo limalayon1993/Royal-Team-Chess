@@ -266,19 +266,25 @@ class PartyManager {
     }
 
     handleAcceptPartyProposal(socket, { senderUsername }) {
+        socket.emit('debug_log', `[Server] handleAcceptPartyProposal: User ${this.connectedUsers.get(socket.id)} accepted proposal from ${senderUsername}`);
+
         const targetName = this.connectedUsers.get(socket.id);
         const senderSocket = this.findSocketByUsername(senderUsername);
 
         if (!senderSocket) {
             socket.emit('error', 'Sender is no longer online');
+            socket.emit('debug_log', `[Server] Error: senderSocket not found for ${senderUsername}`);
             return;
         }
+
+        socket.emit('debug_log', `[Server] Found senderSocket: ${senderSocket.id}`);
 
         // Create Party for Sender
         // We can reuse createParty but we need to inject the member immediately to avoid race conditions?
         // Let's manually create to be safe and atomic.
 
         if (this.socketToParty.has(senderSocket.id)) {
+            socket.emit('debug_log', `[Server] Sender ${senderUsername} is already in party. Joining...`);
             // Sender joined another party in the meantime?
             // Join that party instead?
             // For now, error or try to join.
@@ -311,6 +317,7 @@ class PartyManager {
 
         console.log(`[Party] Created ${partyId} via Proposal (${senderUsername} + ${targetName})`);
         this.emitPartyUpdate(partyId);
+        socket.emit('debug_log', `[Server] Success! Party ${partyId} created.`);
     }
 }
 
