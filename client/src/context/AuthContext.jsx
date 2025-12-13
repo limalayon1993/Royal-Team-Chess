@@ -72,7 +72,9 @@ export const AuthProvider = ({ children }) => {
             if (mounted) {
                 setSession(session);
                 setUser(session?.user ?? null);
-                if (!session) setLoading(false); // Immediate ready if logout
+                // ALWAYS stop loading when we get a definitive state change from the listener
+                // This prevents hanging if initializeAuth() gets stuck but the listener works.
+                setLoading(false);
             }
         });
 
