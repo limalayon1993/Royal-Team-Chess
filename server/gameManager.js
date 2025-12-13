@@ -1671,6 +1671,22 @@ class GameManager {
         }
     }
 
+    handleResign(socket, { roomId }) {
+        const room = this.rooms.get(roomId);
+        if (!room || !room.active) return;
+
+        const board = room.boards.find(b => b.whitePlayerId === socket.id || b.blackPlayerId === socket.id);
+        if (!board || !board.active) return;
+
+        const resigningColor = board.whitePlayerId === socket.id ? 'white' : 'black';
+        const winner = resigningColor === 'white' ? 'black' : 'white';
+
+        console.log(`Player ${socket.id} resigned in room ${roomId}. Winner: ${winner}`);
+
+        // End board with 'resignation' reason (3 points for winner)
+        this.handleBoardEnd(roomId, board.id, winner, 'resignation', 3);
+    }
+
     handleOfferDraw(socket, { roomId }) {
         const room = this.rooms.get(roomId);
         if (!room || !room.active) return;
