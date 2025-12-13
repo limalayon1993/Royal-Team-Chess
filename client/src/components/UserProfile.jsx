@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { translations } from '../translations';
 import { EditProfileModal } from './EditProfileModal';
 import { FriendRequestModal } from './FriendRequestModal';
+import TrophyList from './TrophyList';
 
 export function UserProfile({ language }) {
     const { userId } = useParams();
@@ -70,14 +71,29 @@ export function UserProfile({ language }) {
                 .from('profiles')
                 .select('*')
                 .eq('id', userId)
+                .eq('id', userId)
                 .single();
+
+            // 1.5 Fetch Club Info
+            let clubBox = null;
+            if (!profileError && profileData) {
+                const { data: memberData } = await supabase
+                    .from('club_members')
+                    .select('club:clubs(id, name, division)')
+                    .eq('user_id', userId)
+                    .maybeSingle();
+
+                if (memberData?.club) {
+                    clubBox = memberData.club;
+                }
+            }
 
             if (profileError) {
                 console.error('Error fetching profile:', profileError);
                 // Only mock if ERROR (e.g. user offline/table missing), but try to be graceful
                 setProfile(null);
             } else {
-                setProfile(profileData);
+                setProfile({ ...profileData, club: clubBox });
                 // 2. Set Stats from fetched profile data
                 setStats({
                     points: profileData.points || 0,
@@ -150,12 +166,34 @@ export function UserProfile({ language }) {
                                 {profile.username}
                             </h1>
                             <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mb-6">
-                                <div className="px-4 py-1.5 bg-blue-900/30 border border-blue-500/30 rounded-full text-blue-300 font-bold text-sm uppercase tracking-wide flex items-center gap-2">
-                                    <Shield size={14} /> {profile.team || (t.noTeam || "No Team")}
-                                </div>
+                                {profile.club && (
+                                    <button
+                                        onClick={() => navigate(`/club/${profile.club.id}`)}
+                                        className="px-4 py-1.5 bg-purple-900/30 border border-purple-500/30 rounded-full text-purple-300 font-bold text-sm uppercase tracking-wide flex items-center gap-2 hover:bg-purple-900/50 transition-colors"
+                                    >
+                                        <Shield size={14} /> {profile.club.name}
+                                        {profile.club.division && (
+                                            <span className="bg-purple-500/20 text-purple-200 px-2 py-0.5 rounded ml-1 text-xs">
+                                                Div {profile.club.division}
+                                            </span>
+                                        )}
+                                    </button>
+                                )}
+                                {!profile.club && (
+                                    <div className="px-4 py-1.5 bg-slate-800 border border-slate-700 rounded-full text-slate-400 font-bold text-sm uppercase tracking-wide flex items-center gap-2">
+                                        <Shield size={14} /> Free Agent
+                                    </div>
+                                )}
                             </div>
 
-                            <div className="flex gap-4 justify-center md:justify-start">
+                            <div className="flex gap-4 justify-center md:justify-start flex-wrap">
+                                {/* Stats Button (Always Visible) */}
+                                <button
+                                    onClick={() => navigate(`/profile/${userId}/stats`)}
+                                    className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold transition-all hover:scale-105 border border-slate-700 flex items-center gap-2"
+                                >
+                                    <Activity size={18} className="text-purple-400" /> {t.moreStats || "More Stats"}
+                                </button>
                                 {/* Conditional Button Logic */}
                                 {isOwnProfile ? (
                                     <>
@@ -226,37 +264,9 @@ export function UserProfile({ language }) {
                     </div>
                 </div>
 
-                {/* Trophies Section - Split */}
-                <div className="grid md:grid-cols-2 gap-6">
-                    {/* Individual Trophies */}
-                    <div className="bg-slate-800/30 rounded-3xl p-8 border border-slate-700/50">
-                        <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
-                            <User className="text-purple-400" size={24} /> Individual Trophies
-                        </h2>
-                        <div className="grid grid-cols-2 gap-4">
-                            {[1, 2].map((i) => (
-                                <div key={i} className="aspect-square bg-slate-900/50 rounded-2xl border border-slate-700/50 flex flex-col items-center justify-center p-4 text-center opacity-60 hover:opacity-100 transition-opacity cursor-help">
-                                    <Trophy size={28} className="text-slate-600 mb-2" />
-                                    <span className="text-[10px] font-bold text-slate-500 uppercase">Coming Soon</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Team Trophies */}
-                    <div className="bg-slate-800/30 rounded-3xl p-8 border border-slate-700/50">
-                        <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
-                            <Users className="text-emerald-400" size={24} /> Team Trophies
-                        </h2>
-                        <div className="grid grid-cols-2 gap-4">
-                            {[1, 2].map((i) => (
-                                <div key={i} className="aspect-square bg-slate-900/50 rounded-2xl border border-slate-700/50 flex flex-col items-center justify-center p-4 text-center opacity-60 hover:opacity-100 transition-opacity cursor-help">
-                                    <Trophy size={28} className="text-slate-600 mb-2" />
-                                    <span className="text-[10px] font-bold text-slate-500 uppercase">Coming Soon</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                {/* Trophies Section */}
+                <div className="mb-8">
+                    <TrophyList entityId={userId} type="PLAYER" title="Trofeos Individuales" />
                 </div>
             </div>
 

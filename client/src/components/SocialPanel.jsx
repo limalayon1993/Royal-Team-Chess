@@ -25,6 +25,7 @@ export function SocialPanel({ language, onOpenChat, onInvite, socket }) {
 
 
             const handleStatusUpdate = ({ userId, status }) => {
+                console.log(`[SocialPanel] 🟢 Received Status Update for ${userId}: ${status}`);
                 setUserStatuses(prev => ({
                     ...prev,
                     [userId]: status
@@ -32,6 +33,7 @@ export function SocialPanel({ language, onOpenChat, onInvite, socket }) {
             };
 
             const handleInitialStatuses = (statuses) => {
+                console.log('[SocialPanel] 📥 Received Initial Statuses:', Object.keys(statuses).length, statuses);
                 setUserStatuses(prev => ({
                     ...prev,
                     ...statuses
@@ -41,17 +43,29 @@ export function SocialPanel({ language, onOpenChat, onInvite, socket }) {
             socket.on('userStatusUpdate', handleStatusUpdate);
             socket.on('initialUserStatuses', handleInitialStatuses); // Listen for snapshot
 
+            // Handle Reconnection
+            const handleReconnect = () => {
+                console.log('[SocialPanel] 🔄 Socket Reconnected. Requesting fresh statuses...');
+                socket.emit('requestUserStatuses');
+            };
+            socket.on('connect', handleReconnect);
+
+            // Request fresh statuses on mount (in case we missed the register event or re-mounted)
+            console.log('[SocialPanel] Mounted. Requesting User Statuses...');
+            socket.emit('requestUserStatuses');
+
             return () => {
                 window.removeEventListener('friend-updated', handleFriendUpdate);
                 socket.off('userStatusUpdate', handleStatusUpdate);
                 socket.off('initialUserStatuses', handleInitialStatuses);
+                socket.off('connect', handleReconnect);
             };
         }
 
         return () => {
             window.removeEventListener('friend-updated', handleFriendUpdate);
         };
-    }, [activeTab, socket]);
+    }, [activeTab, socket, currentUser]);
 
     const fetchUsers = async () => {
         if (!currentUser) {
@@ -97,6 +111,31 @@ export function SocialPanel({ language, onOpenChat, onInvite, socket }) {
                     console.log('[SocialPanel] No friends found in DB, clearing list.');
                     setUsers([]);
                 }
+            } else if (activeTab === 'club') {
+                // Fetch user's club members
+                const { data: memberData, error: memberError } = await supabase
+                    .from('club_members')
+                    .select('club_id')
+                    .eq('user_id', currentUser.id)
+                    .maybeSingle();
+
+                if (memberData) {
+                    const { data: clubMembers, error: cmError } = await supabase
+                        .from('club_members')
+                        .select('user:profiles!user_id(id, username, avatar_url)')
+                        .eq('club_id', memberData.club_id);
+
+                    if (clubMembers) {
+                        const mapped = clubMembers.map(m => ({
+                            id: m.user.id,
+                            name: m.user.username,
+                            avatar: m.user.avatar_url
+                        })).filter(u => u.id !== currentUser.id); // Exclude self? Maybe keep self.
+                        setUsers(mapped);
+                    }
+                } else {
+                    setUsers([]);
+                }
             } else {
                 setUsers([]);
             }
@@ -121,13 +160,13 @@ export function SocialPanel({ language, onOpenChat, onInvite, socket }) {
                         <User size={16} /> {language === 'es' ? 'Amigos' : 'Friends'}
                     </button>
                     <button
-                        onClick={() => setActiveTab('team')}
-                        className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'team'
+                        onClick={() => setActiveTab('club')}
+                        className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'club'
                             ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/50'
                             : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
                             }`}
                     >
-                        <Shield size={16} /> Team
+                        <Shield size={16} /> Club
                     </button>
                 </div>
             </div>

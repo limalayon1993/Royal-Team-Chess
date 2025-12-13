@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, Trash2, Search, MessageSquare, UserPlus, Gamepad2, Check } from 'lucide-react';
+import { X, Send, Trash2, Search, MessageSquare, UserPlus, Gamepad2, Check, Shield } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 import { translations } from '../translations';
@@ -250,6 +250,159 @@ export function ChatModal({ isOpen, onClose, language, currentUser, initialChatU
         }
     };
 
+    const handleAcceptClubRequest = async (msg) => {
+        try {
+            const { requestId, clubId, userId: requesterId } = msg.metadata || {}; // Handle legacy or new
+            // Note: message sender_id is the requester
+            const targetUserId = requesterId || msg.sender_id;
+
+            // 1. Call API to Accept
+            await fetch('http://localhost:3000/api/clubs/requests/respond', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    requestId: requestId, // Might be null if direct message injection? Assume metadata has it.
+                    status: 'accepted',
+                    clubId: clubId,
+                    userId: targetUserId
+                })
+            });
+
+            // 2. Update Message Status Locally & DB
+            const { error: mError } = await supabase
+                .from('messages')
+                .update({ metadata: { ...msg.metadata, status: 'accepted' } })
+                .eq('id', msg.id);
+
+            if (!mError) {
+                setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, metadata: { ...m.metadata, status: 'accepted' } } : m));
+            }
+
+        } catch (err) {
+            console.error('Error accepting club request:', err);
+        }
+    };
+
+    const handleDeclineClubRequest = async (msg) => {
+        try {
+            // Update Message Status
+            const { error: mError } = await supabase
+                .from('messages')
+                .update({ metadata: { ...msg.metadata, status: 'declined' } })
+                .eq('id', msg.id);
+
+            if (!mError) {
+                setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, metadata: { ...m.metadata, status: 'declined' } } : m));
+            }
+
+            // Optionally call API to decline join request row too, but message status might be enough for UI.
+            // Let's call API to be safe / consistent.
+            const { requestId, clubId, userId: requesterId } = msg.metadata || {};
+            if (requestId) {
+                await fetch('http://localhost:3000/api/clubs/requests/respond', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ requestId, status: 'declined', clubId, userId: requesterId || msg.sender_id })
+                });
+            }
+
+        } catch (err) {
+            console.error('Error declining club request:', err);
+        }
+    };
+
+    const handleAcceptInvite = async (msg) => {
+        try {
+            const { inviteId, clubId } = msg.metadata || {};
+
+            // 1. Check if user is already in a club (to show warning)
+            // We can check local `currentUser` if it has club info, but it might not be up to date or included.
+            // Let's assume we warn regardless if we think they might be, OR better:
+            // Fetch "My Club" status quickly.
+            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const serverUrl = isLocal ? 'http://localhost:3000' : (import.meta.env.VITE_SERVER_URL || 'http://localhost:3000');
+
+            const resCheck = await fetch(`${serverUrl}/api/clubs/my-club`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: currentUser.id })
+            });
+            const { club: currentClub } = await resCheck.json();
+
+            if (currentClub) {
+                if (currentClub.id === clubId) {
+                    alert('You are already in this club!');
+                    return;
+                }
+                const confirmSwitch = window.confirm(`Accepting this invite will remove you from your current club "${currentClub.name}". Do you want to proceed?`);
+                if (!confirmSwitch) return;
+            }
+
+            // 2. Accept Invite
+            const res = await fetch(`${serverUrl}/api/clubs/invites/respond`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    inviteId,
+                    status: 'accepted',
+                    clubId,
+                    userId: currentUser.id
+                })
+            });
+            const data = await res.json();
+
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+
+            // 3. Update Message Status
+            const { error: mError } = await supabase
+                .from('messages')
+                .update({ metadata: { ...msg.metadata, status: 'accepted' } })
+                .eq('id', msg.id);
+
+            if (!mError) {
+                setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, metadata: { ...m.metadata, status: 'accepted' } } : m));
+                window.location.reload(); // Hard reload to refresh club state everywhere
+            }
+
+        } catch (e) {
+            console.error(e);
+            alert('Error accepting invite');
+        }
+    };
+
+    const handleDeclineInvite = async (msg) => {
+        try {
+            const { inviteId, clubId } = msg.metadata || {};
+            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const serverUrl = isLocal ? 'http://localhost:3000' : (import.meta.env.VITE_SERVER_URL || 'http://localhost:3000');
+
+            await fetch(`${serverUrl}/api/clubs/invites/respond`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    inviteId,
+                    status: 'declined',
+                    clubId,
+                    userId: currentUser.id
+                })
+            });
+
+            const { error: mError } = await supabase
+                .from('messages')
+                .update({ metadata: { ...msg.metadata, status: 'declined' } })
+                .eq('id', msg.id);
+
+            if (!mError) {
+                setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, metadata: { ...m.metadata, status: 'declined' } } : m));
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
     const handleDeleteChat = async (e, otherId) => {
         e.stopPropagation();
         setChats(chats.filter(c => c.other_user_id !== otherId));
@@ -434,6 +587,112 @@ export function ChatModal({ isOpen, onClose, language, currentUser, initialChatU
                                                         {isMe && (
                                                             <div className="text-xs text-slate-500 text-center py-1">
                                                                 Invite sent.
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
+                                    if (msg.type === 'club_invite') {
+                                        const status = msg.metadata?.status || 'pending';
+                                        const clubName = msg.metadata?.clubName || 'a Club';
+
+                                        return (
+                                            <div key={msg.id || idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4`}>
+                                                <div className={`max-w-[80%] rounded-2xl p-1 bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border border-blue-500/30 ${isMe ? 'rounded-tr-none' : 'rounded-tl-none'}`}>
+                                                    <div className="bg-slate-900/90 rounded-xl p-4">
+                                                        <div className="flex items-center gap-2 mb-2 text-xs font-bold text-blue-400 uppercase tracking-widest">
+                                                            <Shield size={14} /> Club Invitation
+                                                        </div>
+                                                        <p className="text-sm text-white mb-2 italic">"{msg.content}"</p>
+                                                        <p className="text-xs text-slate-400 mb-4">You are invited to join <strong>{clubName}</strong></p>
+
+                                                        {status === 'pending' && !isMe && (
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    onClick={() => handleAcceptInvite(msg)}
+                                                                    className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition-all"
+                                                                >
+                                                                    Accept & Join
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeclineInvite(msg)}
+                                                                    className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-xs font-bold transition-all"
+                                                                >
+                                                                    Decline
+                                                                </button>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Status Messages */}
+                                                        {status === 'accepted' && (
+                                                            <div className="text-xs text-green-400 font-bold text-center py-2 bg-green-500/10 rounded-lg border border-green-500/20">
+                                                                Invitation Accepted
+                                                            </div>
+                                                        )}
+                                                        {status === 'declined' && (
+                                                            <div className="text-xs text-red-400 font-bold text-center py-2 bg-red-500/10 rounded-lg border border-red-500/20">
+                                                                Invitation Declined
+                                                            </div>
+                                                        )}
+                                                        {isMe && status === 'pending' && (
+                                                            <div className="text-xs text-slate-500 font-bold text-center py-2">
+                                                                Invite Sent
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
+                                    if (msg.type === 'club_join_request') {
+                                        const status = msg.metadata?.status || 'pending';
+                                        const clubName = msg.metadata?.clubName || 'Club';
+
+                                        return (
+                                            <div key={msg.id || idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4`}>
+                                                <div className={`max-w-[80%] rounded-2xl p-1 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 ${isMe ? 'rounded-tr-none' : 'rounded-tl-none'}`}>
+                                                    <div className="bg-slate-900/90 rounded-xl p-4">
+                                                        <div className="flex items-center gap-2 mb-2 text-xs font-bold text-yellow-400 uppercase tracking-widest">
+                                                            <Shield size={14} /> Club Join Request
+                                                        </div>
+                                                        <p className="text-sm text-white mb-2 italic">"{msg.content}"</p>
+                                                        <p className="text-xs text-slate-400 mb-4">Request to join <strong>{clubName}</strong></p>
+
+                                                        {status === 'pending' && !isMe && (
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    onClick={() => handleAcceptClubRequest(msg)}
+                                                                    className="flex-1 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-xs font-bold transition-all"
+                                                                >
+                                                                    Accept
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeclineClubRequest(msg)}
+                                                                    className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-xs font-bold transition-all"
+                                                                >
+                                                                    Decline
+                                                                </button>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Status Messages */}
+                                                        {status === 'accepted' && (
+                                                            <div className="text-xs text-green-400 font-bold text-center py-2 bg-green-500/10 rounded-lg border border-green-500/20">
+                                                                Request Accepted
+                                                            </div>
+                                                        )}
+                                                        {status === 'declined' && (
+                                                            <div className="text-xs text-red-400 font-bold text-center py-2 bg-red-500/10 rounded-lg border border-red-500/20">
+                                                                Request Declined
+                                                            </div>
+                                                        )}
+                                                        {isMe && status === 'pending' && (
+                                                            <div className="text-xs text-slate-500 font-bold text-center py-2">
+                                                                Request Pending...
                                                             </div>
                                                         )}
                                                     </div>

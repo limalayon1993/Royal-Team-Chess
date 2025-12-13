@@ -257,6 +257,10 @@ class PartyManager {
         this.io.to(partyId).emit('partyUpdate', party);
     }
 
+    getPartyIdForUser(socketId) {
+        return this.socketToParty.get(socketId);
+    }
+
     getParty(socketId) {
         const id = this.socketToParty.get(socketId);
         return id ? this.parties.get(id) : null;

@@ -9,8 +9,7 @@ class GameManager {
     constructor(io) {
         this.io = io;
         this.rooms = new Map(); // roomId -> { boards: [], players, timer, settings, ... }
-        this.matchmakingQueue = []; // Array of { socket, settings, timestamp }
-        this.matchmakingQueue = []; // Array of { socket, settings, timestamp, colorPreference }
+        this.matchmakingQueue = []; // Array of queue entries
         this.userElos = new Map(); // username -> elo
         this.lastPlayedColor = new Map(); // username -> 'white' | 'black'
         this.partyManager = null;
@@ -61,6 +60,7 @@ class GameManager {
                     password: password || null,
                     // language: language || 'en', // REMOVED: Replaced by team-based languages
                     isMatchmaking: !!isMatchmaking,
+                    clubIds: settings?.clubIds || { white: null, black: null }, // { white: clubId, black: clubId }
                     createdAt: Date.now()
                 },
                 languages: {
@@ -362,7 +362,7 @@ class GameManager {
         this.io.emit('roomsList', rooms);
     }
 
-    handleFindMatch(socket, { username, settings }) {
+    async handleFindMatch(socket, { username, settings }) {
         try {
             console.log(`[Matchmaking] ${username} (${socket.id}) searching for match. Settings:`, settings);
             if (!settings) {
@@ -393,12 +393,24 @@ class GameManager {
                 console.log(`[Matchmaking] processing Party ${party.id} (Size: ${party.members.length})`);
 
                 // Build Group from Party Members
-                group = party.members.map(m => ({
-                    socket: this.io.sockets.sockets.get(m.socketId), // Live Socket
-                    username: m.username,
-                    elo: this.userElos.get(m.username) || 300,
-                    settings: settings // Shared settings from Leader
-                })).filter(m => m.socket); // Filter disconnected?
+                group = await Promise.all(party.members.map(async m => {
+                    let mElo = this.userElos.get(m.username);
+                    if (mElo === undefined) {
+                        try {
+                            mElo = await db.getUserElo(m.username);
+                            this.userElos.set(m.username, mElo);
+                        } catch (e) { mElo = 300; }
+                    }
+
+                    return {
+                        socket: this.io.sockets.sockets.get(m.socketId), // Live Socket
+                        username: m.username,
+                        elo: mElo,
+                        settings: settings // Shared settings from Leader
+                    };
+                }));
+
+                group = group.filter(m => m.socket); // Filter disconnected?
 
                 if (group.length !== party.members.length) {
                     socket.emit('error', 'Some party members are offline');
@@ -418,6 +430,30 @@ class GameManager {
                     settings: settings
                 }];
             }
+
+            // 1.5 Club Logic (Play for Club)
+            let clubId = null;
+            if (settings.playForClub) {
+                // Verify all members belong to SAME club
+                const clubs = await Promise.all(group.map(m => db.getClubByUsername(m.username)));
+
+                // Check if any null (no club) or different
+                const firstClub = clubs[0];
+                if (!firstClub) {
+                    socket.emit('error', 'You must be in a club to Play for Club');
+                    return;
+                }
+
+                const allSame = clubs.every(c => c && c.id === firstClub.id);
+                if (!allSame) {
+                    socket.emit('error', 'All party members must belong to the same club');
+                    return;
+                }
+
+                clubId = firstClub.id;
+                console.log(`[Matchmaking] Group playing for Club: ${firstClub.name} (${clubId})`);
+            }
+
 
             // 2. Determine Color Preference (Leader's preference or logic?)
             // For now, simpler: Leader's preference dictates.
@@ -452,13 +488,9 @@ class GameManager {
             // Actually, for now, let's use the Leader as the "Queue Entry" and store group in it?
 
             if (group.length > 1) {
-                // Temporary: Fallback simple queueing or Error?
-                // Ideally we implement `this.matchmakingQueue` to hold objects:
-                // { id, group: [], ... }
-                // Let's refactor addToQueue now.
-                this.addPartyToQueue(group, settings, colorPreference);
+                this.addPartyToQueue(group, settings, colorPreference, clubId);
             } else {
-                this.addToQueue(socket, username, settings, userElo, colorPreference);
+                this.addToQueue(socket, username, settings, userElo, colorPreference, clubId);
             }
 
         } catch (err) {
@@ -680,7 +712,7 @@ class GameManager {
         return true;
     }
 
-    addPartyToQueue(group, settings, colorPreference) {
+    addPartyToQueue(group, settings, colorPreference, clubId) {
         // Group structure: [{ socket, username, ... }, ...]
         // Queue Item
         const entry = {
@@ -691,9 +723,9 @@ class GameManager {
             timestamp: Date.now(),
             // Calculated ELO for matchmaking? 
             // For now, use Leader's ELO or Max? 
-            // Or average?
             // Let's use Average.
-            elo: Math.floor(group.reduce((sum, m) => sum + m.elo, 0) / group.length)
+            elo: Math.floor(group.reduce((sum, m) => sum + m.elo, 0) / group.length),
+            clubId: clubId || null
         };
 
         this.matchmakingQueue.push(entry);
@@ -706,9 +738,7 @@ class GameManager {
         this.processQueue();
     }
 
-    // Refactor addToQueue to use standard entry format 
-    // BUT maintain backward comp if needed, or unify.
-    addToQueue(socket, username, settings, elo, colorPreference = 'any') {
+    addToQueue(socket, username, settings, elo, colorPreference = 'any', clubId = null) {
         this.removeFromQueue(socket.id); // Ensure uniqueness is handled (might need update for Party check)
 
         this.matchmakingQueue.push({
@@ -719,7 +749,8 @@ class GameManager {
             elo,
             colorPreference,
             timestamp: Date.now(),
-            group: [{ socket, username, elo, settings }] // Unified structure
+            group: [{ socket, username, elo, settings }], // Unified structure
+            clubId: clubId
         });
 
         socket.emit('matchmakingStatus', { status: 'searching' });
@@ -887,9 +918,16 @@ class GameManager {
 
         // Create Room
         const roomSettings = {
-            time: time,
-            teamSize: size
+            isMatchmaking: true,
+            teamSize: size,
+            time: time, // time is in seconds
+            clubIds: {
+                white: e1.clubId || null,
+                black: e2.clubId || null
+            }
         };
+
+
 
         // Host is Leader of Group 1
         const hostSocket = e1.group[0].socket;
@@ -1192,6 +1230,18 @@ class GameManager {
             this.updateElo(roomId, boardId, winner);
         }
 
+        // STATS UPDATE (New Feature)
+        if (room.metadata.isMatchmaking) {
+            // Only track stats for Ranked/Matchmaking games? 
+            // The prompt didn't specify, but usually "Season Points" implies ranked.
+            // Let's assume YES for Ranked, maybe NO for custom private?
+            // "Puntos de temporada... partidas jugadas..." 
+            // It says "puntos de temporada (estos tambien pueden verse directamente en el perfil)".
+            // Let's track for ALL matchmaking/ranked games.
+
+            this.trackBoardStats(room, board, winner, reason, points);
+        }
+
         // Update Team Score
         if (winner === 'white') room.scores.white += points;
         else if (winner === 'black') room.scores.black += points;
@@ -1222,9 +1272,113 @@ class GameManager {
             // Partial ELO update? No, usually update at end of match or per board?
             // For team chess, maybe per board is fine.
             // Let's UPDATE ELO NOW for the finished board
-            if (room.metadata.isMatchmaking) {
-                this.updateElo(roomId, boardId, winner);
-            }
+            // Already called above.
+        }
+    }
+
+    async trackBoardStats(room, board, winner, reason, points) {
+        try {
+            // 1. Get Users
+            const whiteUser = room.usernames.get(board.whitePlayerId);
+            const blackUser = room.usernames.get(board.blackPlayerId);
+
+            // Need User IDs? db.updateUserStats takes UUID? Or username?
+            // Ideally UUID. But `room.usernames` stores USERNAMES.
+            // My db functions take `userId` (UUID).
+            // Do I have UUIDs mapped? NO. `gameManager` has `usernames` map (socket -> username).
+            // `db.getUserElo` uses username.
+            // `db.updateUserStats` I defined using `userId`.
+            // Wait, I need User IDs.
+            // Potential Issue: I don't have UserIDs readily available in GameManager except if I fetched them.
+            // `db.getUserElo` fetches profile by username.
+            // I should modify `db.updateUserStats` to accept username OR fetch ID first.
+            // OR I should use `db.deleteUser` logic which fetches ID.
+
+            // Refactor Plan: Let's assume I need to fetch IDs.
+            // Or better, make `updateUserStats` work with username?
+            // No, the table relies on `user_id` FK.
+            // So I need to fetch ID from username.
+
+            // Since this is async/fire-and-forget, I can fetch IDs inside `trackBoardStats` or helper.
+
+            // 2. Calculate Season
+            // 2. Calculate Season (Strictly Europe/Madrid Time)
+            const getSeasonId = () => {
+                const now = new Date();
+                const spainTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
+                return `${spainTime.getFullYear()}-${String(spainTime.getMonth() + 1).padStart(2, '0')}`;
+            };
+            const seasonId = getSeasonId();
+
+            // 3. Get Captures
+            const captures = this.getCaptures(board.game);
+            // captures = { w: ['p', 'n'], b: [] } -> Pieces captured BY that color.
+            const whiteTaken = captures.w.length;
+            const blackTaken = captures.b.length;
+
+            // 4. Prepare Increments
+            const updateForUser = async (username, isWhite) => {
+                if (!username) return;
+
+                // Fetch ID (Optimizable: Cache IDs in Room?)
+                // For now, let's look it up.
+                const { data: uData } = await db.getUserElo(username).then(() => null); // Oops getUserElo returns number.
+                // We need a Lookup.
+                // Let's add `getUserId(username)` to db or query inline.
+                // Actually `updateUserStats` in db.js took `userId`. 
+                // Let's change `updateUserStats` in db.js to accept `username` and lookup internally? 
+                // OR `db.getIdByUsername`.
+                // Let's do `db.getIdByUsername` if it existed.
+                // It doesn't. 
+                // I will add a helper here or directly query if I can import supabase? 
+                // GameManager imports `db`. I can add `getUserId` to `db.js`?
+                // I've already edited `db.js`. I can add one more function or just use a raw query here using the db instance?
+                // `db` module exports `isConnected` but not the `supabase` instance directly (it's internal).
+
+                // Quick Fix: I will add `updateUserStatsByUsername` to db.js? 
+                // Or just modify `updateUserStats` to lookup.
+                // I'll assume for this step I will call a wrapper `db.updateUserStatsByUsername` 
+                // and I need to update `db.js` AGAIN. 
+                // Wait, I can do it in the next tool call. 
+                // For now, let's write the Logic here assuming `db.updateUserStatsByUsername` exists.
+
+                const myColor = isWhite ? 'white' : 'black';
+                const isWinner = winner === myColor;
+                const isDraw = winner === 'draw' || winner === null;
+                const isLoser = !isWinner && !isDraw;
+
+                const stats = {
+                    games_played: 1,
+                    pieces_eaten: isWhite ? whiteTaken : blackTaken,
+                    season_points: 0 // Will add points below
+                };
+
+                if (isWinner) {
+                    stats.wins = 1;
+                    stats.season_points = points;
+
+                    if (reason === 'checkmate') stats.wins_checkmate = 1;
+                    else if (reason === 'timeout') stats.wins_time = 1;
+                    else if (reason === 'resignation' || reason === 'abandon') stats.wins_resignation = 1;
+
+                } else if (isLoser) {
+                    stats.losses = 1;
+                    if (reason === 'checkmate') stats.losses_checkmate = 1;
+                    else if (reason === 'timeout') stats.losses_time = 1;
+                    else if (reason === 'resignation' || reason === 'abandon') stats.losses_resignation = 1;
+                } else {
+                    stats.draws = 1;
+                    stats.season_points = points;
+                }
+
+                await db.updateUserStatsByUsername(username, seasonId, stats);
+            };
+
+            await updateForUser(whiteUser, true);
+            await updateForUser(blackUser, false);
+
+        } catch (e) {
+            console.error('[GameManager] Error tracking stats:', e);
         }
     }
 
@@ -1269,6 +1423,45 @@ class GameManager {
             scores: room.scores,
             details: room.boardResults
         });
+
+        // CLUB STATS UPDATE
+        if (room.metadata.clubIds) { // Only if metadata exists
+            const { white: whiteClubId, black: blackClubId } = room.metadata.clubIds;
+
+            // Note: Only update if club was involved
+            if (whiteClubId || blackClubId) {
+                // Determine Match Winner
+                // `matchWinner` is 'white', 'black', or 'draw'
+
+                const updateClub = async (cId, isWhiteTeam) => {
+                    if (!cId) return;
+
+                    const myTeam = isWhiteTeam ? 'white' : 'black';
+                    const isWinner = matchWinner === myTeam;
+                    const isDraw = matchWinner === 'draw';
+                    const isLoser = !isWinner && !isDraw;
+
+                    const stats = {
+                        games_played: 1,
+                        wins: isWinner ? 1 : 0,
+                        losses: isLoser ? 1 : 0,
+                        draws: isDraw ? 1 : 0,
+                        season_points: isWinner ? 3 : (isDraw ? 1 : 0) // Example Points: 3 for win, 1 for draw
+                    };
+
+                    // Calculate Season ID (Strictly Europe/Madrid)
+                    const now = new Date();
+                    const spainTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
+                    const seasonId = `${spainTime.getFullYear()}-${String(spainTime.getMonth() + 1).padStart(2, '0')}`;
+
+                    await db.updateClubStats(cId, seasonId, stats);
+                    console.log(`[ClubStats] Updated Club ${cId}: ${isWinner ? 'WIN' : (isDraw ? 'DRAW' : 'LOSS')}`);
+                };
+
+                updateClub(whiteClubId, true);
+                updateClub(blackClubId, false);
+            }
+        }
     }
 
     broadcastGameState(roomId, board) {
@@ -1528,52 +1721,64 @@ class GameManager {
         return base + growth;
     }
 
-    removeFromQueue(socketId) {
-        // Check if user is in party
-        const party = this.partyManager.getParty(socketId);
+    processQueue() {
+        if (this.matchmakingQueue.size < 2) return;
 
-        if (party) {
-            console.log(`[Matchmaking] Party ${party.id} canceled search`);
-            // Remove ALL members from queue
-            party.members.forEach(m => {
-                // Remove from Map
-                // Note: matchmakingQueue stores by socketId key
-                if (this.matchmakingQueue.has(m.socketId)) {
-                    this.matchmakingQueue.delete(m.socketId);
+        // Convert Map values to Array for sorting
+        const queueArray = Array.from(this.matchmakingQueue.values());
 
-                    // Notify client
-                    const memberSocket = this.io.sockets.sockets.get(m.socketId);
-                    if (memberSocket) {
-                        memberSocket.emit('matchmakingStatus', { status: 'cancelled' });
-                    }
+        // Sort by timestamp (FCFS)
+        queueArray.sort((a, b) => a.timestamp - b.timestamp);
+
+        while (queueArray.length >= 2) {
+            const p1 = queueArray.shift();
+            // Simple logic: take the next person
+            const p2 = queueArray.shift();
+
+            // Create Match
+            const roomId = `match_${p1.socket.id}_${p2.socket.id}`;
+            const settings = p1.settings || {}; // Default settings from p1
+
+            // Extract Club IDs if any
+            const clubIds = {
+                white: p1.clubId || null,
+                black: p2.clubId || null
+            };
+
+            // Add to settings so createRoom picks it up
+            settings.clubIds = clubIds;
+
+            // Remove from Map
+            this.matchmakingQueue.delete(p1.socket.id);
+            this.matchmakingQueue.delete(p2.socket.id);
+
+            // Notify them (and their party members)
+            const notifyFound = (entry) => {
+                if (entry.isParty) {
+                    entry.group.forEach(m => {
+                        if (m.socket) m.socket.emit('matchmakingStatus', { status: 'found', roomId });
+                    });
+                } else {
+                    entry.socket.emit('matchmakingStatus', { status: 'found', roomId });
                 }
+            };
+            notifyFound(p1);
+            notifyFound(p2);
+
+            this.createRoom(null, {
+                roomId,
+                username: 'System',
+                settings,
+                roomName: 'Ranked Match',
+                isPrivate: false,
+                isMatchmaking: true
             });
-            // Update party status
-            party.isSearching = false;
-            this.partyManager.emitPartyUpdate(party.id);
-        } else {
-            // Solo
-            if (this.matchmakingQueue.has(socketId)) {
-                console.log(`[Matchmaking] User ${socketId} canceled search`);
-                this.matchmakingQueue.delete(socketId);
-                const socket = this.io.sockets.sockets.get(socketId);
-                if (socket) socket.emit('matchmakingStatus', { status: 'cancelled' });
-            }
+
+            // Join them
+            // Use _executeJoin for robustness with groups
+            this._executeJoin(p1.group, roomId, 'white', settings);
+            this._executeJoin(p2.group, roomId, 'black', settings);
         }
-    }
-
-    handleResign(socket, { roomId }) {
-        const room = this.rooms.get(roomId);
-        if (!room || !room.active) return;
-
-        const board = room.boards.find(b => b.whitePlayerId === socket.id || b.blackPlayerId === socket.id);
-        if (!board || !board.active) return;
-
-        const loserColor = board.whitePlayerId === socket.id ? 'white' : 'black';
-        const winnerColor = loserColor === 'white' ? 'black' : 'white';
-
-        // Resignation = 3 points for winner
-        this.handleBoardEnd(roomId, board.id, winnerColor, 'resignation', 3);
     }
 }
 

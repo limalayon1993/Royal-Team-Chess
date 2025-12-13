@@ -38,22 +38,57 @@ export function EditProfileModal({ isOpen, onClose, profile, language }) {
     const handleDeleteAccount = async () => {
         setLoading(true);
         try {
-            // 1. Delete Messages
-            await supabase.from('messages').delete().or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
+            // Determine Server URL (with fallback)
+            // FORCE LOCALHOST: If we are on localhost, ignore VITE_SERVER_URL to avoid hitting Prod
+            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const serverUrl = isLocal ? 'http://localhost:3000' : (import.meta.env.VITE_SERVER_URL || 'http://localhost:3000');
 
-            // 2. Delete Profile (This frees up the Username)
-            const { error } = await supabase.from('profiles').delete().eq('id', user.id);
+            console.log('[DeleteAccount] Targeting Server URL:', serverUrl);
 
-            if (error) throw error;
+            const response = await fetch(`${serverUrl}/api/admin/delete-user`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: user.user_metadata.username || username })
+            });
+
+            // Check content type or status before parsing JSON
+            const contentType = response.headers.get("content-type");
+            if (!response.ok) {
+                // Try to read text if possible
+                const text = await response.text();
+                throw new Error(`Server returned ${response.status}: ${text}`);
+            }
+            if (!contentType || !contentType.includes("application/json")) {
+                const text = await response.text();
+                console.error('[DeleteAccount] Invalid Response (Not JSON):', text.substring(0, 100)); // Log first 100 chars
+                // VERBOSE DEBUG ALERT
+                alert(`DEBUG ERROR:\nURL: ${serverUrl}/api/admin/delete-user\nStatus: ${response.status}\nContent-Type: ${contentType}\nResponse Start: ${text.substring(0, 50)}...`);
+                throw new Error("Server returned non-JSON response. See alert.");
+            }
+
+            const result = await response.json();
+
+            if (!result.success) {
+                // IDEMPOTENCY CHECK:
+                // If the error is "User not found", it means they are ALREADY deleted.
+                // We should treat this as success from the client's perspective (cleanup local data).
+                if (response.status === 404 || (result.error && result.error.includes('not found'))) {
+                    console.warn('[DeleteAccount] User already deleted on server. Proceeding to local cleanup.');
+                } else {
+                    throw new Error(result.error || 'Server failed to delete user');
+                }
+            }
 
             // 3. Sign Out
-            await signOut();
+            // await signOut(); // This might fail if user is already deleted from Auth, but we try.
+            // Force clearing local session
+            localStorage.clear();
+            sessionStorage.clear();
 
-            // Note: Use 'auth.users' deletion requires Admin API or manual deletion in Dashboard.
-            // But this effectively "resets" their public data.
-            alert('Your profile data has been deleted. (Note: Only Supabase Admin can delete the login email completely)');
+            alert('Your profile has been successfully deleted. Redirecting...');
             window.location.href = '/';
         } catch (error) {
+            console.error('[DeleteAccount] Error details:', error);
             alert('Error deleting data: ' + error.message);
         }
         setLoading(false);
@@ -99,7 +134,7 @@ export function EditProfileModal({ isOpen, onClose, profile, language }) {
                                 onClick={() => setDeleteConfirm(true)}
                                 className="px-4 py-3 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-xl font-bold transition-all flex items-center gap-2 border border-red-500/20"
                             >
-                                <Trash2 size={18} /> Delete Data
+                                <Trash2 size={18} /> Delete Account
                             </button>
                             <button
                                 type="submit"
@@ -111,17 +146,13 @@ export function EditProfileModal({ isOpen, onClose, profile, language }) {
                         </div>
                     </form>
                 ) : (
-                    <div className="text-center space-y-4">
+                    <div className="text-center space-y-4 animate-fade-in">
                         <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto text-red-500 mb-2">
                             <AlertTriangle size={32} />
                         </div>
-                        <h3 className="text-xl font-bold text-white">Are you sure?</h3>
+                        <h3 className="text-xl font-bold text-white">Delete Account?</h3>
                         <p className="text-slate-400 text-sm">
-                            This will delete your public profile, stats, and chat history.
-                            <br />
-                            <span className="text-red-400 font-bold mt-2 block">
-                                IMPORTANT: This does NOT delete your Email login from Supabase Auth (security restriction). You must do that in the Supabase Dashboard.
-                            </span>
+                            This action cannot be undone. All your data (stats, friends, messages) will be permanently removed.
                         </p>
                         <div className="flex gap-3 pt-4">
                             <button
@@ -132,9 +163,10 @@ export function EditProfileModal({ isOpen, onClose, profile, language }) {
                             </button>
                             <button
                                 onClick={handleDeleteAccount}
-                                className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-red-900/30"
+                                disabled={loading}
+                                className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-red-900/30 flex items-center justify-center"
                             >
-                                Yes, Delete
+                                {loading ? 'Deleting...' : 'Yes, Delete Everything'}
                             </button>
                         </div>
                     </div>

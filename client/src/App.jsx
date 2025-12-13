@@ -5,6 +5,11 @@ import { Lobby } from './components/Lobby';
 import { GameRoom } from './components/GameRoom';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { UserProfile } from './components/UserProfile';
+import { CreateClub } from './components/CreateClub';
+import { ClubProfile } from './components/ClubProfile';
+import { ClubStatistics } from './components/ClubStatistics';
+import { UserStatistics } from './components/UserStatistics'; // Added
+import { RankingLeagues } from './components/RankingLeagues';
 import { supabase } from './supabaseClient';
 
 import { Globe, Wifi, Mail, Lock } from 'lucide-react';
@@ -25,6 +30,8 @@ function RoyalTeamChess({
   console.log('[Royal] Render. handleAcceptProposal type:', typeof handleAcceptProposal);
   console.log('[Royal] Render. sendPartyProposalMessage type:', typeof sendPartyProposalMessage);
   const { user, recoveryMode, setRecoveryMode } = useAuth();
+
+
 
 
   const [room, setRoom] = useState(null);
@@ -343,9 +350,7 @@ function RoyalTeamChess({
     socket.emit('joinRoom', { roomId, username, password });
   }, [socket, username, t]);
 
-  const handlePlayAsGuest = useCallback((guestName) => {
-    setUsername(guestName);
-  }, []);
+
 
   // Determine my role
   const myId = socket.id;
@@ -408,7 +413,6 @@ function RoyalTeamChess({
       <>
         <ErrorBoundary>
           <LandingPage
-            onPlayAsGuest={handlePlayAsGuest}
             language={language}
             toggleLanguage={toggleLanguage}
             roomsList={roomsList}
@@ -585,11 +589,23 @@ function RoyalTeamChess({
 function App() {
   const [language, setLanguage] = useState('en');
   const [socket, setSocket] = useState(() => {
-    const url = import.meta.env.DEV ? 'http://localhost:3000' : (import.meta.env.VITE_SERVER_URL || 'http://localhost:3000');
+    // FORCE LOCALHOST DEUBGGING: If we are on localhost, look for localhost:3000
+    // The previous check (import.meta.env.DEV) might be failing or configured wrong.
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const glue = import.meta.env.VITE_SERVER_URL;
+
+    console.log('[SocketInit] Hostname:', window.location.hostname);
+    console.log('[SocketInit] import.meta.env.DEV:', import.meta.env.DEV);
+    console.log('[SocketInit] VITE_SERVER_URL:', glue);
+
+    // If local, force localhost:3000. Otherwise use env or fallback.
+    const url = isLocal ? 'http://localhost:3000' : (glue || 'http://localhost:3000');
+
     console.log('Initializing socket connection to:', url);
     return io(url);
   });
   const [serverUrl, setServerUrl] = useState(import.meta.env.VITE_SERVER_URL || 'http://localhost:3000');
+  console.log('[App] Render. ServerUrl:', serverUrl);
   const [showContact, setShowContact] = useState(false);
 
   // Party State (Lifted)
@@ -600,6 +616,16 @@ function App() {
   const pendingInviteRef = useRef(null);
 
   const t = translations[language];
+
+  // Lifecycle: Cleanup socket on unmount or change to prevent ghosts
+  useEffect(() => {
+    return () => {
+      if (socket) {
+        console.log('[App] Cleaning up socket connection');
+        socket.disconnect();
+      }
+    };
+  }, [socket]);
 
   // Auth Context
   // We need to wrap everything in AuthProvider inside App, but we need Auth context here for user ID?
@@ -637,6 +663,7 @@ function AppContent({
   showPartyModal, setShowPartyModal, showPartyInvite, setShowPartyInvite,
   pendingInviteRef
 }) {
+  console.log('[AppContent] Render');
   const { user, recoveryMode, setRecoveryMode } = useAuth();
   const t = translations[language];
 
@@ -771,7 +798,10 @@ function AppContent({
             <Globe size={16} /> {language === 'en' ? 'ESPAÑOL' : 'ENGLISH'}
           </button>
         </div>
+
+
         <div className="glass-panel p-8 max-w-md w-full text-center">
+
           {/* ... Title & Form ... */}
           <h1 className="text-4xl font-bold mb-8 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">{t.title}</h1>
           <form onSubmit={connect} className="space-y-4">
@@ -779,7 +809,7 @@ function AppContent({
             <button type="submit" className="btn-primary w-full py-3"><Wifi size={20} /> Connect</button>
           </form>
         </div>
-      </div>
+      </div >
     );
   }
 
@@ -837,6 +867,32 @@ function AppContent({
               socket={socket} /* Pass socket so profile sees status? */
             /* Profile might need party info too if we want chat there? */
             />
+          }
+        />
+        <Route
+          path="/profile/:userId/stats"
+          element={
+            <UserStatistics
+              language={language}
+            />
+          }
+        />
+        <Route
+          path="/ranking-leagues"
+          element={
+            <RankingLeagues language={language} />
+          }
+        />
+        <Route
+          path="/club/create"
+          element={
+            <CreateClub language={language} />
+          }
+        />
+        <Route
+          path="/club/:clubId"
+          element={
+            <ClubProfile language={language} socket={socket} />
           }
         />
         <Route path="*" element={

@@ -9,7 +9,7 @@ import { SocialPanel } from './SocialPanel';
 import { ChatModal } from './ChatModal';
 import { useAuth } from '../context/AuthContext';
 
-export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList, onCreateRoom, onJoinRoom, onRefreshRooms, username, user, initialView = 'landing', socket, party, onPartyCreate, onPartyInvite, onPartyJoin, onPartyLeave, onOpenParty, onJoinParty, onAcceptProposal }) {
+export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom, onJoinRoom, onRefreshRooms, username, user, initialView = 'landing', socket, party, onPartyCreate, onPartyInvite, onPartyJoin, onPartyLeave, onOpenParty, onJoinParty, onAcceptProposal }) {
     console.log('[Landing] Render. onAcceptProposal present?', !!onAcceptProposal);
     const navigate = useNavigate();
     const location = useLocation();
@@ -57,6 +57,7 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
     const [browserSearch, setBrowserSearch] = useState('');
     const [selectedRoom, setSelectedRoom] = useState(null);
     const [joinPassword, setJoinPassword] = useState('');
+    const [playForClub, setPlayForClub] = useState(false);
 
     // Matchmaking State
     const [searchStatus, setSearchStatus] = useState('idle'); // idle, searching, found
@@ -174,18 +175,12 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
         }
     }, [menuView, onRefreshRooms]);
 
-    const handleGuestLogin = (name) => {
-        const guestName = name || `Guest_${Math.floor(Math.random() * 9000) + 1000}`;
-        onPlayAsGuest(guestName);
-        setMenuView('main');
-    };
-
     const handlePlayNow = () => {
         if (user || username) {
             setMenuView('main');
             window.history.pushState({}, '', '/main');
         } else {
-            openAuth('options');
+            openAuth('login');
         }
     };
 
@@ -281,7 +276,26 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                 <div className="w-full max-w-[1600px] mx-auto px-6 flex gap-8">
 
                     {/* Main Cards Grid - Takes up remaining space */}
+                    {/* Main Cards Grid - Takes up remaining space */}
                     <div className="flex-1 grid md:grid-cols-2 lg:grid-cols-3 gap-8 transition-all duration-500">
+                        {/* Ranking Leagues Button */}
+                        <div
+                            onClick={() => navigate('/ranking-leagues')}
+                            className="group relative h-[400px] rounded-3xl overflow-hidden transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-amber-900/50 border border-slate-800 hover:border-amber-500/50 text-left bg-slate-900 cursor-pointer"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-br from-amber-900/20 via-slate-900 to-slate-900 z-10" />
+                            <div className="absolute inset-0 bg-grid-white/[0.02] bg-[length:32px_32px] z-0" />
+                            <div className="absolute bottom-0 left-0 p-8 z-20 w-full">
+                                <div className="w-16 h-16 bg-amber-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-amber-900/50 group-hover:scale-110 transition-transform duration-300">
+                                    <Trophy size={40} className="text-white ml-1" fill="currentColor" />
+                                </div>
+                                <h3 className="text-4xl font-black text-white mb-2">Leagues</h3>
+                                <p className="text-amber-200 text-sm font-medium leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity">
+                                    {t.rankingLeaguesDesc || "Compete for promotion and glory."}
+                                </p>
+                            </div>
+                        </div>
+
                         {/* Play Button */}
                         <button
                             onClick={() => setMenuView('play_modes')}
@@ -323,19 +337,45 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                             </div>
                         </button>
 
-                        {/* Teams Button */}
+                        {/* Club Button */}
                         <button
-                            onClick={() => alert('Teams page coming soon!')} // Placeholder
+                            onClick={async () => {
+                                if (!user) {
+                                    openAuth('login');
+                                    return;
+                                }
+                                try {
+                                    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                                    const serverUrl = isLocal ? 'http://localhost:3000' : (import.meta.env.VITE_SERVER_URL || 'http://localhost:3000');
+                                    const res = await fetch(`${serverUrl}/api/clubs/my-club`, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json'
+                                        },
+                                        body: JSON.stringify({ userId: user.id })
+                                    });
+                                    const data = await res.json();
+
+                                    if (data.club) {
+                                        navigate(`/club/${data.club.id}`);
+                                    } else {
+                                        navigate('/club/create');
+                                    }
+                                } catch (e) {
+                                    console.error('Club Check Error:', e);
+                                    navigate('/club/create');
+                                }
+                            }}
                             className="group relative h-[400px] rounded-3xl overflow-hidden transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-900/50 border border-slate-800 hover:border-emerald-500/50 text-left bg-slate-900"
                         >
                             <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/20 via-slate-900 to-slate-900 z-10" />
                             <div className="absolute bottom-0 left-0 p-8 z-20 w-full">
                                 <div className="w-16 h-16 bg-emerald-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-emerald-900/50 group-hover:scale-110 transition-transform duration-300">
-                                    <Users2 size={40} className="text-white" />
+                                    <Shield size={40} className="text-white" />
                                 </div>
-                                <h3 className="text-4xl font-black text-white mb-2">{t.teams || "Teams"}</h3>
+                                <h3 className="text-4xl font-black text-white mb-2">{t.club || "Club"}</h3>
                                 <p className="text-emerald-200 text-sm font-medium leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity">
-                                    {t.teamsSubtitle || "Manage your roster."}
+                                    {t.clubSubtitle || "Manage your team and roster."}
                                 </p>
                             </div>
                         </button>
@@ -906,7 +946,7 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                             // Correctly structure the payload for the server
                             socket.emit('findMatch', {
                                 username: username || user?.user_metadata?.username,
-                                settings: searchSettings
+                                settings: { ...searchSettings, playForClub }
                             });
                             setSearchStatus('searching');
                         } else {
@@ -942,8 +982,23 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                     )}
                 </button>
             </div>
-        </div>
 
+            {/* Play for Club Toggle */}
+            {user && (
+                <div className="mt-6 flex items-center gap-3 bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                    <button
+                        onClick={() => setPlayForClub(!playForClub)}
+                        className={`w-12 h-6 rounded-full transition-colors relative ${playForClub ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                    >
+                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-md transition-transform duration-200 ${playForClub ? 'translate-x-7' : 'translate-x-1'}`} />
+                    </button>
+                    <span className={`font-bold ${playForClub ? 'text-emerald-400' : 'text-slate-400'}`}>
+                        Play for Club Ranking
+                    </span>
+                    <Shield size={16} className={playForClub ? 'text-emerald-400' : 'text-slate-500'} />
+                </div>
+            )}
+        </div>
     );
 
     return (
@@ -954,7 +1009,6 @@ export function LandingPage({ onPlayAsGuest, language, toggleLanguage, roomsList
                     onClose={() => setShowAuth(false)}
                     language={language}
                     initialView={authView}
-                    onPlayAsGuest={handleGuestLogin}
                 />
             )}
 

@@ -1,9 +1,11 @@
+
 import React, { useState } from 'react';
-import { X, Mail, Lock, User, LogIn, UserPlus, AlertCircle, Crown } from 'lucide-react';
+import { X, Mail, Lock, User, LogIn, UserPlus, AlertCircle } from 'lucide-react';
 import { translations } from '../translations';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../supabaseClient';
 
-export function AuthModal({ onClose, language = 'en', initialView = 'login', onPlayAsGuest }) {
+export function AuthModal({ onClose, language = 'en', initialView = 'login' }) {
     const t = translations[language];
     const { signIn, signUp, resetPassword, updatePassword } = useAuth();
     const [view, setView] = useState(initialView); // 'options', 'login', 'register', 'forgotPassword', 'updatePassword'
@@ -16,6 +18,8 @@ export function AuthModal({ onClose, language = 'en', initialView = 'login', onP
         username: ''
     });
 
+
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError(null);
@@ -27,7 +31,8 @@ export function AuthModal({ onClose, language = 'en', initialView = 'login', onP
                 onClose();
             } else if (view === 'register') {
                 await signUp(formData.email, formData.password, formData.username);
-                onClose();
+                alert("Account created! You can now sign in.");
+                setView('login');
             } else if (view === 'forgotPassword') {
                 await resetPassword(formData.email);
                 setError('success'); // Use error state to show success message
@@ -44,12 +49,24 @@ export function AuthModal({ onClose, language = 'en', initialView = 'login', onP
         }
     };
 
-    const handlePlayAsGuest = () => {
-        if (onPlayAsGuest) {
-            onPlayAsGuest();
-            onClose();
+    // Resend Email Logic
+    const handleResendEmail = async () => {
+        setLoading(true);
+        try {
+            await supabase.auth.resend({
+                type: 'signup',
+                email: formData.email,
+            });
+            alert('Confirmation email resent! Check your inbox (and spam).');
+        } catch (error) {
+            console.error(error);
+            alert('Error resending email: ' + error.message);
+        } finally {
+            setLoading(false);
         }
     };
+
+
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
@@ -61,70 +78,12 @@ export function AuthModal({ onClose, language = 'en', initialView = 'login', onP
                     <X size={24} />
                 </button>
 
-                {/* OPTIONS VIEW */}
-                {view === 'options' && (
-                    <div className="flex flex-col items-center py-4">
-                        <div className="p-3 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-xl text-white mb-4">
-                            <Crown size={40} className="text-yellow-400" />
-                        </div>
-                        <h2 className="text-2xl font-bold text-white mb-8">{t.chooseGameMode}</h2>
 
-                        <div className="w-full space-y-4">
-                            <button
-                                onClick={() => setView('login')}
-                                className="w-full group relative p-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-blue-500 rounded-xl transition-all text-left flex items-center gap-4"
-                            >
-                                <div className="p-3 bg-blue-500/10 rounded-lg text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-colors">
-                                    <LogIn size={24} />
-                                </div>
-                                <div>
-                                    <div className="font-bold text-white text-lg">{t.login || "Sign In"}</div>
-                                    <div className="text-slate-400 text-sm">{t.loginDesc}</div>
-                                </div>
-                            </button>
-
-                            <div className="relative flex items-center py-2">
-                                <div className="flex-grow border-t border-slate-700"></div>
-                                <span className="flex-shrink-0 mx-4 text-slate-500 text-xs font-bold uppercase tracking-wider">{t.or}</span>
-                                <div className="flex-grow border-t border-slate-700"></div>
-                            </div>
-
-                            <button
-                                onClick={handlePlayAsGuest}
-                                className="w-full group relative p-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-green-500 rounded-xl transition-all text-left flex items-center gap-4"
-                            >
-                                <div className="p-3 bg-green-500/10 rounded-lg text-green-400 group-hover:bg-green-500 group-hover:text-white transition-colors">
-                                    <User size={24} />
-                                </div>
-                                <div>
-                                    <div className="font-bold text-white text-lg">{t.playAsGuest || "Play as Guest"}</div>
-                                    <div className="text-slate-400 text-sm">{t.playAsGuestDesc}</div>
-                                </div>
-                            </button>
-                        </div>
-
-                        <div className="mt-8 text-center">
-                            <button
-                                onClick={() => setView('register')}
-                                className="text-slate-400 hover:text-white text-sm underline transition-colors"
-                            >
-                                {t.noAccount || "Don't have an account? Sign up"}
-                            </button>
-                        </div>
-                    </div>
-                )}
 
                 {/* LOGIN / REGISTER / FORGOT PASSWORD / UPDATE PASSWORD VIEW */}
                 {(view === 'login' || view === 'register' || view === 'forgotPassword' || view === 'updatePassword') && (
                     <>
-                        {initialView === 'options' && view !== 'updatePassword' && (
-                            <button
-                                onClick={() => setView('options')}
-                                className="absolute top-4 left-4 text-slate-400 hover:text-white text-sm font-bold flex items-center gap-1"
-                            >
-                                ← {t.back}
-                            </button>
-                        )}
+
 
                         <div className="flex flex-col items-center mb-6 mt-2">
                             <div className="p-3 bg-blue-500/20 rounded-lg text-blue-400 mb-3">
@@ -142,8 +101,7 @@ export function AuthModal({ onClose, language = 'en', initialView = 'login', onP
                             <p className="text-slate-400 text-sm mt-1 text-center">
                                 {view === 'login' ? (t.loginSubtitle || 'Sign in to continue') :
                                     view === 'register' ? (t.registerSubtitle || 'Join the Royal Team Chess community') :
-                                        view === 'updatePassword' ? (t.updatePasswordSubtitle || 'Enter your new password below') :
-                                            (t.resetPasswordSubtitle || 'Enter your email to receive a reset link')}
+                                        (t.resetPasswordSubtitle || 'Enter your email to receive a reset link')}
                             </p>
                         </div>
 
@@ -183,7 +141,7 @@ export function AuthModal({ onClose, language = 'en', initialView = 'login', onP
                                     </div>
                                 )}
 
-                                {(view === 'forgotPassword' || view === 'login' || view === 'register') && (
+                                {(view === 'forgotPassword' || view === 'login' || view === 'register' || view === 'resetAccount') && (
                                     <div>
                                         <label className="block text-sm font-bold text-slate-400 mb-1">
                                             {t.email || 'Email'}
@@ -263,6 +221,8 @@ export function AuthModal({ onClose, language = 'en', initialView = 'login', onP
                                         </>
                                     )}
                                 </button>
+
+
                             </form>
                         )}
 

@@ -157,11 +157,7 @@ export const translations = {
         hasAccount: "Already have an account? Sign in",
         logout: "Sign Out",
 
-        // Auth Options
-        chooseGameMode: "Choose Game Mode",
-        playAsGuestDesc: "Play immediately. No stats saved.",
-        loginDesc: "Ranked play. Save your history.",
-        or: "OR",
+
 
         // New Menu System
         quickMatch: "Quick Match",
@@ -228,7 +224,7 @@ export const translations = {
         join: "Unirse",
         projectInfo: "Información del Proyecto",
         playNow: "JUGAR AHORA",
-        playAsGuest: "JUGAR COMO INVITADO",
+
         betaAccess: "Beta Pública Activa",
         heroTitle1: "El Ajedrez es ahora un",
         heroTitle2: "Deporte de Equipo.",
@@ -387,11 +383,7 @@ export const translations = {
         hasAccount: "¿Ya tienes cuenta? Inicia sesión",
         logout: "Cerrar Sesión",
 
-        // Opciones de Autenticación
-        chooseGameMode: "Elige Modo de Juego",
-        playAsGuestDesc: "Juega inmediatamente. Sin estadísticas.",
-        loginDesc: "Partida clasificada. Guarda tu historial.",
-        or: "O",
+
 
         // New Menu System
         quickMatch: "Partida Rápida",
