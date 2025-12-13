@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
-import './TrophyList.css'; // We will create this CSS
+import { translations } from '../translations';
+import './TrophyList.css';
 
-const TrophyList = ({ entityId, type, title = "Vitrina de Trofeos" }) => {
+const TrophyList = ({ entityId, type, title, language = 'en' }) => {
     const [trophies, setTrophies] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedTrophy, setSelectedTrophy] = useState(null);
+    const t = translations[language];
 
     useEffect(() => {
         if (entityId && type) {
@@ -67,12 +69,12 @@ const TrophyList = ({ entityId, type, title = "Vitrina de Trofeos" }) => {
         setTrophies(Object.values(groups));
     };
 
-    if (loading) return <div className="trophy-loading">Cargando trofeos...</div>;
-    if (trophies.length === 0) return <div className="trophy-empty">No hay trofeos aún.</div>;
+    if (loading) return <div className="trophy-loading">{t.trophyLoading}</div>;
+    if (trophies.length === 0) return <div className="trophy-empty">{t.trophyEmpty}</div>;
 
     return (
         <div className="trophy-container">
-            <h3>{title}</h3>
+            <h3>{title || t.trophyTitle}</h3>
             <div className="trophy-grid">
                 {trophies.map((group) => (
                     <div
@@ -114,7 +116,7 @@ const TrophyList = ({ entityId, type, title = "Vitrina de Trofeos" }) => {
                             <p className="trophy-desc">{selectedTrophy.definition.description}</p>
 
                             <div className="trophy-history">
-                                <h4>Historial de Victorias</h4>
+                                <h4>{t.victoryHistory}</h4>
                                 <ul>
                                     {selectedTrophy.awards.map((award) => (
                                         <li key={award.id}>
@@ -122,7 +124,7 @@ const TrophyList = ({ entityId, type, title = "Vitrina de Trofeos" }) => {
                                                 {new Date(award.awarded_at).toLocaleDateString()}
                                             </span>
                                             {award.season_id && (
-                                                <span className="trophy-season"> (Temporada {award.season_id})</span>
+                                                <span className="trophy-season"> ({t.season} {award.season_id})</span>
                                             )}
                                         </li>
                                     ))}

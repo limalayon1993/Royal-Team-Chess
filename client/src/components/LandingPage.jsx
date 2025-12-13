@@ -226,8 +226,8 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                     <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-400 transition-colors" size={24} />
                     <div className="absolute right-2 top-2 bottom-2 flex bg-slate-800 rounded-lg p-1 border border-slate-700">
                         <select className="bg-transparent text-white text-sm font-bold px-4 focus:outline-none cursor-pointer hover:text-blue-400 transition-colors">
-                            <option value="user">{t.player || "Player"}</option>
-                            <option value="team">{t.team || "Team"}</option>
+                            <option value="user">{t.player}</option>
+                            <option value="team">{t.team}</option>
                         </select>
                     </div>
                     <input
@@ -237,7 +237,7 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                         onFocus={() => userSearchQuery.length >= 2 && setShowUserDropdown(true)}
                         onBlur={() => setTimeout(() => setShowUserDropdown(false), 200)} // Delay to allow click
                         className="w-full bg-slate-900/80 border border-slate-700/50 rounded-2xl py-6 pl-16 pr-32 text-xl text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 transition-all shadow-xl"
-                        placeholder={t.searchPlaceholder || "Search players..."}
+                        placeholder={t.searchPlayers}
                     />
 
                     {/* Search Dropdown */}
@@ -261,7 +261,7 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                                     <div>
                                         <div className="font-bold text-white text-lg">{result.username}</div>
                                         <div className="text-xs text-blue-400 font-bold uppercase tracking-wider flex items-center gap-1">
-                                            <Shield size={10} /> {result.team || "Free Agent"}
+                                            <Shield size={10} /> {result.team || t.freeAgent || "Free Agent"}
                                         </div>
                                     </div>
                                 </button>
@@ -289,9 +289,9 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                                 <div className="w-16 h-16 bg-amber-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-amber-900/50 group-hover:scale-110 transition-transform duration-300">
                                     <Trophy size={40} className="text-white ml-1" fill="currentColor" />
                                 </div>
-                                <h3 className="text-4xl font-black text-white mb-2">Leagues</h3>
+                                <h3 className="text-4xl font-black text-white mb-2">{t.leaguesTitle}</h3>
                                 <p className="text-amber-200 text-sm font-medium leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity">
-                                    {t.rankingLeaguesDesc || "Compete for promotion and glory."}
+                                    {t.rankingLeaguesDesc}
                                 </p>
                             </div>
                         </div>
@@ -309,7 +309,7 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                                 </div>
                                 <h3 className="text-4xl font-black text-white mb-2">{t.play}</h3>
                                 <p className="text-blue-200 text-sm font-medium leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity">
-                                    {t.quickMatchDesc || "Jump straight into the action."}
+                                    {t.quickMatchDesc}
                                 </p>
                             </div>
                         </button>
@@ -330,9 +330,9 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                                 <div className="w-16 h-16 bg-purple-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-purple-900/50 group-hover:scale-110 transition-transform duration-300">
                                     <UserCircle size={40} className="text-white" />
                                 </div>
-                                <h3 className="text-4xl font-black text-white mb-2">{t.profile || "Profile"}</h3>
+                                <h3 className="text-4xl font-black text-white mb-2">{t.profile}</h3>
                                 <p className="text-purple-200 text-sm font-medium leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity">
-                                    {t.profileSubtitle || "View your stats and history."}
+                                    {t.profileSubtitle}
                                 </p>
                             </div>
                         </button>
@@ -373,9 +373,9 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                                 <div className="w-16 h-16 bg-emerald-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-emerald-900/50 group-hover:scale-110 transition-transform duration-300">
                                     <Shield size={40} className="text-white" />
                                 </div>
-                                <h3 className="text-4xl font-black text-white mb-2">{t.club || "Club"}</h3>
+                                <h3 className="text-4xl font-black text-white mb-2">{t.club}</h3>
                                 <p className="text-emerald-200 text-sm font-medium leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity">
-                                    {t.clubSubtitle || "Manage your team and roster."}
+                                    {t.clubSubtitle}
                                 </p>
                             </div>
                         </button>
@@ -396,9 +396,9 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                                         </div>
                                     )}
                                 </div>
-                                <h3 className="text-4xl font-black text-white mb-2">{t.messages || "Messages"}</h3>
+                                <h3 className="text-4xl font-black text-white mb-2">{t.messages}</h3>
                                 <p className="text-cyan-200 text-sm font-medium leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity">
-                                    {t.messagesSubtitle || "Chat with friends and team."}
+                                    {t.messagesSubtitle}
                                 </p>
                             </div>
                         </button>
@@ -417,10 +417,10 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                             </div>
                             <div>
                                 <h3 className={`text-2xl font-black mb-1 ${party ? 'text-white' : 'text-slate-400'}`}>
-                                    {party ? (t.partyActive || "Party Active") : "Party"}
+                                    {party ? t.partyActive : "Party"}
                                 </h3>
                                 <p className="text-sm font-medium opacity-80 text-slate-400">
-                                    {party ? `${party.members.length} Members • ${party.leaderId === socket?.id ? "You are Leader" : "Member"}` : "Invite friends via Social Panel."}
+                                    {party ? `${party.members.length} ${t.partyMember} • ${party.leaderId === socket?.id ? t.partyLeader : t.partyMember}` : t.partyInviteHint}
                                 </p>
                             </div>
                         </button>
@@ -475,10 +475,10 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
         <div className="max-w-6xl mx-auto w-full px-6 animate-fade-in flex flex-col items-center justify-center min-h-[600px] pt-32">
             <div className="text-center mb-12">
                 <h2 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">
-                    {t.mainMenuTitle || "Choose Your Battlefield"}
+                    {t.playModesTitle}
                 </h2>
                 <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-                    {t.mainMenuSubtitle || "Select a game mode to begin your conquest. Play casually or compete for glory."}
+                    {t.playModesSubtitle}
                 </p>
             </div>
 
@@ -495,9 +495,9 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                         <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-blue-900/50 group-hover:scale-110 transition-transform duration-300">
                             <Zap size={32} className="text-white" />
                         </div>
-                        <h3 className="text-3xl font-black text-white mb-2">{t.quickMatch || "Quick Match"}</h3>
+                        <h3 className="text-3xl font-black text-white mb-2">{t.quickMatch}</h3>
                         <p className="text-blue-200 text-sm font-medium leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity">
-                            {t.quickMatchDesc || "Jump straight into the action. We'll find the best game for you based on your skill level."}
+                            {t.quickMatchDesc}
                         </p>
                     </div>
                 </button>
@@ -517,9 +517,9 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                         <div className="w-14 h-14 bg-purple-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-purple-900/50 group-hover:scale-110 transition-transform duration-300">
                             <Search size={32} className="text-white" />
                         </div>
-                        <h3 className="text-3xl font-black text-white mb-2">{t.serverBrowser || "Server Browser"}</h3>
+                        <h3 className="text-3xl font-black text-white mb-2">{t.serverBrowser}</h3>
                         <p className="text-purple-200 text-sm font-medium leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity">
-                            {t.serverBrowserDesc || "Browse active public games. Filter by language, skill level, and game settings."}
+                            {t.serverBrowserDesc}
                         </p>
                     </div>
                 </button>
@@ -536,9 +536,9 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                         <div className="w-14 h-14 bg-emerald-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-emerald-900/50 group-hover:scale-110 transition-transform duration-300">
                             <Server size={32} className="text-white" />
                         </div>
-                        <h3 className="text-3xl font-black text-white mb-2">{t.createServer || "Create Server"}</h3>
+                        <h3 className="text-3xl font-black text-white mb-2">{t.createServer}</h3>
                         <p className="text-emerald-200 text-sm font-medium leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity">
-                            {t.createServerDesc || "Host your own game. Customize rules, privacy settings, and invite your friends."}
+                            {t.createServerDesc}
                         </p>
                     </div>
                 </button>
@@ -548,7 +548,7 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                 onClick={() => setMenuView('main')}
                 className="mt-16 flex items-center gap-3 text-slate-500 hover:text-white transition-all hover:scale-105 px-6 py-3 rounded-full hover:bg-slate-800"
             >
-                <LogOut size={20} /> <span className="font-bold tracking-wide">{t.back || "RETURN TO HOME"}</span>
+                <LogOut size={20} /> <span className="font-bold tracking-wide">{t.returnToHome}</span>
             </button>
         </div>
     );
@@ -560,29 +560,29 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                     <div className="p-3 bg-emerald-600 rounded-xl shadow-lg shadow-emerald-900/50">
                         <Server size={32} className="text-white" />
                     </div>
-                    {t.createServer || "Create Server"}
+                    {t.createServer}
                 </h2>
                 <p className="text-slate-400 text-lg">
-                    {t.createServerSubtitle || "Configure your battlefield and invite your allies."}
+                    {t.createServerSubtitle}
                 </p>
             </div>
 
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 w-full shadow-2xl">
                 <div className="space-y-8">
                     <div>
-                        <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.roomName || "Room Name"}</label>
+                        <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.roomName}</label>
                         <input
                             type="text"
                             value={newRoomName}
                             onChange={(e) => setNewRoomName(e.target.value)}
                             className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-4 px-6 text-lg text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 transition-all"
-                            placeholder="e.g. Grandmaster Arena"
+                            placeholder={t.roomNamePlaceholder}
                         />
                     </div>
 
                     <div className="grid grid-cols-3 gap-6">
                         <div>
-                            <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.teamSize || "Team Size"}</label>
+                            <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.teamSize}</label>
                             <div className="relative">
                                 <select
                                     value={teamSize}
@@ -598,7 +598,7 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.timeControl || "Time Control"}</label>
+                            <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.timeControl}</label>
                             <div className="relative">
                                 <select
                                     value={timeControl}
@@ -617,7 +617,7 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.language || "Language"}</label>
+                            <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.language}</label>
                             <div className="relative">
                                 <select
                                     value={roomLanguage}
@@ -639,8 +639,8 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                                     {isPrivate ? <Lock size={20} /> : <Unlock size={20} />}
                                 </div>
                                 <div>
-                                    <span className="block font-bold text-white text-lg">{t.privateRoom || "Private Room"}</span>
-                                    <span className="text-sm text-slate-400">Require a password to join</span>
+                                    <span className="block font-bold text-white text-lg">{t.privateRoom}</span>
+                                    <span className="text-sm text-slate-400">{t.requirePassword}</span>
                                 </div>
                             </div>
                             <button
@@ -653,13 +653,13 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
 
                         {isPrivate && (
                             <div className="animate-fade-in mt-4 pt-4 border-t border-slate-700/50">
-                                <label className="block text-sm font-bold text-slate-400 mb-2 uppercase tracking-wider">{t.password || "Password"}</label>
+                                <label className="block text-sm font-bold text-slate-400 mb-2 uppercase tracking-wider">{t.password}</label>
                                 <input
                                     type="password"
                                     value={roomPassword}
                                     onChange={(e) => setRoomPassword(e.target.value)}
                                     className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-emerald-500 transition-all"
-                                    placeholder="Set a secret password"
+                                    placeholder={t.passwordPlaceholder}
                                 />
                             </div>
                         )}
@@ -670,14 +670,14 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                             onClick={() => setMenuView('main')}
                             className="flex-1 py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-all hover:scale-105"
                         >
-                            {t.cancel || "Cancel"}
+                            {t.cancel}
                         </button>
                         <button
                             onClick={handleCreateRoom}
                             disabled={!newRoomName}
                             className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:hover:bg-emerald-600 text-white rounded-xl font-bold transition-all hover:scale-105 shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-2"
                         >
-                            {t.create || "Create Server"} <Play size={20} fill="currentColor" />
+                            {t.create} <Play size={20} fill="currentColor" />
                         </button>
                     </div>
                 </div>
@@ -693,10 +693,10 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                         <div className="p-3 bg-purple-600 rounded-xl shadow-lg shadow-purple-900/50">
                             <Search size={32} className="text-white" />
                         </div>
-                        {t.serverBrowser || "Server Browser"}
+                        {t.serverBrowser}
                     </h2>
                     <p className="text-slate-400 text-lg ml-16">
-                        {t.serverBrowserSubtitle || "Join active battles and prove your worth."}
+                        {t.serverBrowserSubtitle}
                     </p>
                 </div>
                 <button
@@ -716,7 +716,7 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                             value={browserSearch}
                             onChange={(e) => setBrowserSearch(e.target.value)}
                             className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-4 pl-14 pr-4 text-lg text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 transition-all"
-                            placeholder={t.searchPlaceholder || "Search rooms by name..."}
+                            placeholder={t.searchPlaceholder}
                         />
                     </div>
                 </div>
@@ -734,16 +734,16 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                                         {room.isMatchmaking && <span className="text-xs bg-blue-600 px-2 py-0.5 rounded text-white font-bold tracking-wider">RANKED</span>}
                                     </h3>
                                     <div className="flex items-center gap-4 text-sm text-slate-400">
-                                        <span className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded-lg border border-slate-700/50" title={t.players || "Players"}>
+                                        <span className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded-lg border border-slate-700/50" title={t.players}>
                                             <Users size={14} className="text-blue-400" /> {room.players}/{room.maxPlayers}
                                         </span>
-                                        <span className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded-lg border border-slate-700/50" title={t.spectators || "Spectators"}>
+                                        <span className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded-lg border border-slate-700/50" title={t.spectators}>
                                             <Eye size={14} className="text-purple-400" /> {room.spectators || 0}
                                         </span>
-                                        <span className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded-lg border border-slate-700/50" title={t.timePerTeam || "Time"}>
+                                        <span className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded-lg border border-slate-700/50" title={t.timePerTeam}>
                                             <Clock size={14} className="text-orange-400" /> {Math.floor(room.settings?.time / 60)}m
                                         </span>
-                                        <span className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded-lg border border-slate-700/50 uppercase font-bold text-xs" title={t.language || "Language"}>
+                                        <span className="flex items-center gap-1.5 bg-slate-900/50 px-2 py-1 rounded-lg border border-slate-700/50 uppercase font-bold text-xs" title={t.language}>
                                             <Globe size={14} className="text-green-400" /> {room.language || 'EN'}
                                         </span>
                                     </div>
@@ -754,7 +754,7 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                                     disabled
                                     className="px-8 py-3 bg-slate-800 text-slate-500 rounded-xl font-bold border border-slate-700 cursor-not-allowed"
                                 >
-                                    {t.matchmakingOnly || "Matchmaking Only"}
+                                    {t.matchmakingOnly}
                                 </button>
                             ) : (
                                 <button
@@ -763,11 +763,11 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                                 >
                                     {room.active ? (
                                         <>
-                                            {t.spectate || "Spectate"} <Eye size={16} fill="currentColor" />
+                                            {t.spectate} <Eye size={16} fill="currentColor" />
                                         </>
                                     ) : (
                                         <>
-                                            {t.join || "Join"} <Play size={16} fill="currentColor" />
+                                            {t.join} <Play size={16} fill="currentColor" />
                                         </>
                                     )}
                                 </button>
@@ -777,8 +777,8 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                     {roomsList.length === 0 && (
                         <div className="flex flex-col items-center justify-center h-full text-slate-500 opacity-60">
                             <Server size={64} className="mb-4" />
-                            <p className="text-xl font-medium">{t.noRooms || "No active rooms found."}</p>
-                            <p className="text-sm mt-2">Create one to get started!</p>
+                            <p className="text-xl font-medium">{t.noRooms}</p>
+                            <p className="text-sm mt-2">{t.createOneHint}</p>
                         </div>
                     )}
                 </div>
@@ -788,7 +788,7 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                 onClick={() => setMenuView('main')}
                 className="mt-8 mx-auto flex items-center gap-3 text-slate-500 hover:text-white transition-all hover:scale-105 px-6 py-3 rounded-full hover:bg-slate-800"
             >
-                <LogOut size={20} /> <span className="font-bold tracking-wide">{t.back || "RETURN TO MENU"}</span>
+                <LogOut size={20} /> <span className="font-bold tracking-wide">{t.returnToMenu}</span>
             </button>
 
             {/* Password Modal */}
@@ -797,9 +797,9 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                     <div className="bg-slate-900 border border-slate-700 p-8 rounded-3xl max-w-md w-full shadow-2xl shadow-black/50">
                         <h3 className="text-2xl font-bold mb-6 flex items-center gap-3 text-white">
                             <div className="p-2 bg-red-900/30 rounded-lg text-red-400"><Lock size={24} /></div>
-                            {t.passwordRequired || "Password Required"}
+                            {t.passwordRequired}
                         </h3>
-                        <p className="text-slate-400 mb-6">This room is private. Please enter the password to join.</p>
+                        <p className="text-slate-400 mb-6">{t.privateRoomHint}</p>
                         <input
                             type="password"
                             value={joinPassword}

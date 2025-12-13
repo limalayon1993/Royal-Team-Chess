@@ -301,13 +301,13 @@ function RoyalTeamChess({
   const createRoom = useCallback((roomData) => {
     // roomData: { name, isPrivate, password, teamSize, time, language }
     if (!username) {
-      alert(t.usernamePlaceholder || "Please enter a username");
+      alert(t.enterUsername);
       return;
     }
 
     if (!socket || !socket.connected) {
       console.error('Socket not connected', socket);
-      alert('Connection to server lost. Please wait or refresh.');
+      alert(t.connectionLost);
       return;
     }
 
@@ -344,7 +344,7 @@ function RoyalTeamChess({
 
     if (!username) {
       console.error('App: joinRoom failed - missing username');
-      alert(t.usernamePlaceholder || "Please enter a username first");
+      alert(t.enterUsername);
       return;
     }
     socket.emit('joinRoom', { roomId, username, password });
@@ -470,7 +470,7 @@ function RoyalTeamChess({
                 };
 
                 const getReasonText = (isWinner) => {
-                  if (isDraw) return d.reason === 'timeout' ? 'Timeout (Draw)' : reasonText;
+                  if (isDraw) return d.reason === 'timeout' ? t.timeoutDraw : reasonText;
                   return reasonText;
                 };
 
@@ -519,7 +519,7 @@ function RoyalTeamChess({
 
                         {/* 5. Points */}
                         <div className={`font-mono font-bold text-right ${p.points > 0 ? 'text-green-400' : 'text-slate-600'}`}>
-                          {p.points} pts
+                          {p.points} {t.pts}
                         </div>
                       </div>
                     ))}

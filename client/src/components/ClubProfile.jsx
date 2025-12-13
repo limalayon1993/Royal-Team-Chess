@@ -164,7 +164,7 @@ export function ClubProfile({ language, socket }) {
     const handleKickMember = async (memberUser) => {
         if (memberUser.id === user.id) return; // Cannot kick self here, though standard logic handles nav
 
-        if (!confirm(`¿Estás seguro de que quieres expulsar a ${memberUser.username} del club?`)) return;
+        if (!confirm(t.kickConfirm)) return;
 
         try {
             const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -193,7 +193,7 @@ export function ClubProfile({ language, socket }) {
     const handleMemberClick = (member) => {
         if (isKickMode) {
             if (member.role === 'owner') {
-                alert('No puedes expulsar al dueño.');
+                alert(t.cannotKickOwner);
                 return;
             }
             handleKickMember(member.user);
@@ -337,7 +337,7 @@ export function ClubProfile({ language, socket }) {
                 {/* Header */}
                 <div className="flex items-start justify-between mb-8">
                     <button onClick={() => navigate('/', { state: { view: 'main' } })} className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
-                        <ArrowLeft size={20} /> Back
+                        <ArrowLeft size={20} /> {t.back}
                     </button>
 
                     {isOwner && (
@@ -365,20 +365,20 @@ export function ClubProfile({ language, socket }) {
 
                         <div className="flex-1">
                             <h1 className="text-5xl font-black mb-2">{club.name}</h1>
-                            <p className="text-slate-400 text-lg max-w-2xl">{club.description || "No description provided."}</p>
+                            <p className="text-slate-400 text-lg max-w-2xl">{club.description || t.noDescription}</p>
 
                             <div className="flex gap-6 mt-6">
                                 <div className="flex items-center gap-2 text-slate-300">
                                     <Trophy size={18} className="text-amber-400" />
-                                    <span className="font-bold">{club.total_trophies || 0} Trophies</span>
+                                    <span className="font-bold">{club.total_trophies || 0} {t.trophies}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-slate-300">
                                     <Users size={18} className="text-blue-400" />
-                                    <span className="font-bold">{members.length} Members</span>
+                                    <span className="font-bold">{members.length} {t.members}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-slate-300">
                                     <Calendar size={18} className="text-purple-400" />
-                                    <span className="font-bold">Est. {new Date(club.created_at).toLocaleDateString()}</span>
+                                    <span className="font-bold">{t.established} {new Date(club.created_at).toLocaleDateString()}</span>
                                 </div>
                             </div>
                         </div>
@@ -387,14 +387,14 @@ export function ClubProfile({ language, socket }) {
                         <div className="flex flex-col gap-3">
                             {isMember ? (
                                 <div className="px-6 py-2 bg-emerald-900/30 border border-emerald-500/30 text-emerald-400 rounded-lg font-bold flex items-center gap-2">
-                                    <Shield size={16} /> Member
+                                    <Shield size={16} /> {t.member}
                                 </div>
                             ) : (
                                 <button
                                     onClick={() => setShowJoinModal(true)}
                                     className="btn-primary flex items-center gap-2 px-6"
                                 >
-                                    request to Join
+                                    {t.requestJoin}
                                 </button>
                             )}
 
@@ -402,7 +402,7 @@ export function ClubProfile({ language, socket }) {
                                 onClick={() => setShowStats(!showStats)}
                                 className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-all border border-slate-700 flex items-center gap-2 justify-center"
                             >
-                                <BarChart2 size={18} /> Statistics
+                                <BarChart2 size={18} /> {t.statistics}
                             </button>
                         </div>
                     </div>
@@ -410,13 +410,13 @@ export function ClubProfile({ language, socket }) {
 
                 {/* Trophies Section */}
                 <div className="mb-8">
-                    <TrophyList entityId={club.id} type="CLUB" />
+                    <TrophyList entityId={club.id} type="CLUB" language={language} />
                 </div>
 
                 {/* Statistics Section (Toggleable) */}
                 {showStats && (
                     <div className="mb-8 animate-fade-in-up">
-                        <ClubStatistics clubId={clubId} />
+                        <ClubStatistics clubId={clubId} language={language} />
                     </div>
                 )}
 
@@ -431,14 +431,14 @@ export function ClubProfile({ language, socket }) {
                                     onClick={() => setActiveTab('members')}
                                     className={`text-xl font-bold flex items-center gap-2 ${activeTab === 'members' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
                                 >
-                                    <Users className={activeTab === 'members' ? "text-blue-400" : "text-slate-500"} /> Members
+                                    <Users className={activeTab === 'members' ? "text-blue-400" : "text-slate-500"} /> {t.members}
                                 </button>
                                 {isOwner && (
                                     <button
                                         onClick={() => setActiveTab('requests')}
                                         className={`text-xl font-bold flex items-center gap-2 ${activeTab === 'requests' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
                                     >
-                                        <UserPlus className={activeTab === 'requests' ? "text-orange-400" : "text-slate-500"} /> Requests
+                                        <UserPlus className={activeTab === 'requests' ? "text-orange-400" : "text-slate-500"} /> {t.requests}
                                         {requests.length > 0 && <span className="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full">{requests.length}</span>}
                                     </button>
                                 )}
@@ -450,7 +450,7 @@ export function ClubProfile({ language, socket }) {
                                         onClick={() => setShowInviteModal(true)}
                                         className="text-sm bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded-lg font-bold transition-colors"
                                     >
-                                        + Invite
+                                        + {t.invite}
                                     </button>
                                     <button
                                         onClick={() => setIsKickMode(!isKickMode)}
@@ -459,7 +459,7 @@ export function ClubProfile({ language, socket }) {
                                             : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
                                             }`}
                                     >
-                                        {isKickMode ? 'Cancelar' : 'Expulsar'}
+                                        {isKickMode ? t.cancel : t.kick}
                                     </button>
                                 </div>
                             )}
@@ -488,20 +488,20 @@ export function ClubProfile({ language, socket }) {
                                             {m.role === 'owner' && <Crown size={14} className="text-amber-400" />}
                                             {m.role === 'admin' && <Shield size={14} className="text-slate-400" />}
                                             {isKickMode && m.role !== 'owner' && (
-                                                <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded ml-2 animate-pulse">EXPULSAR</span>
+                                                <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded ml-2 animate-pulse">{t.kickCaps}</span>
                                             )}
                                         </div>
                                         <div className="text-xs text-slate-500">ELO: {m.user.elo}</div>
                                     </div>
                                     <div className="text-right">
                                         <div className="font-mono font-bold text-emerald-400">+0 pts</div>
-                                        <div className="text-xs text-slate-500">Season</div>
+                                        <div className="text-xs text-slate-500">{t.season}</div>
                                     </div>
                                 </div>
                             ))}
 
                             {activeTab === 'requests' && requests.length === 0 && (
-                                <div className="p-8 text-center text-slate-500 italic">No pending requests</div>
+                                <div className="p-8 text-center text-slate-500 italic">{t.noPendingRequests}</div>
                             )}
 
                             {activeTab === 'requests' && requests.map(r => (
@@ -518,16 +518,16 @@ export function ClubProfile({ language, socket }) {
                                         <button
                                             onClick={() => handleRespondRequest(r.id, 'rejected')}
                                             className="p-2 bg-slate-800 hover:bg-red-900/50 text-slate-400 hover:text-red-400 rounded-lg transition-colors"
-                                            title="Decline"
+                                            title={t.decline}
                                         >
-                                            Decline
+                                            {t.decline}
                                         </button>
                                         <button
                                             onClick={() => handleRespondRequest(r.id, 'accepted')}
                                             className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors font-bold"
-                                            title="Accept"
+                                            title={t.accept}
                                         >
-                                            Accept
+                                            {t.accept}
                                         </button>
                                     </div>
                                 </div>
@@ -546,18 +546,18 @@ export function ClubProfile({ language, socket }) {
                             </h3>
 
                             <div className="relative z-10">
-                                <div className="text-sm text-slate-400 font-bold uppercase tracking-wider mb-1">Division</div>
+                                <div className="text-sm text-slate-400 font-bold uppercase tracking-wider mb-1">{t.division}</div>
                                 <div className="text-3xl font-black text-white mb-4">
-                                    {leagueStats?.division === 1 ? "Division 1" : `Division ${leagueStats?.division}`}
+                                    {leagueStats?.division === 1 ? `${t.divisionName} 1` : `${t.divisionName} ${leagueStats?.division}`}
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4 mb-4">
                                     <div className="bg-slate-950/50 p-3 rounded-xl border border-slate-700/50">
-                                        <div className="text-xs text-slate-500 uppercase font-bold">Points</div>
+                                        <div className="text-xs text-slate-500 uppercase font-bold">{t.points}</div>
                                         <div className="text-xl font-black text-blue-400">{leagueStats?.points || 0}</div>
                                     </div>
                                     <div className="bg-slate-950/50 p-3 rounded-xl border border-slate-700/50">
-                                        <div className="text-xs text-slate-500 uppercase font-bold">Record</div>
+                                        <div className="text-xs text-slate-500 uppercase font-bold">{t.record}</div>
                                         <div className="text-xl font-bold text-white flex gap-1">
                                             <span className="text-emerald-400">{leagueStats?.wins || 0}</span>-
                                             <span className="text-slate-400">{leagueStats?.draws || 0}</span>-
@@ -567,7 +567,7 @@ export function ClubProfile({ language, socket }) {
                                 </div>
 
                                 <button className="w-full py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-500 rounded-lg font-bold text-sm transition-colors border border-amber-500/20">
-                                    View Full Table
+                                    {t.viewFullTable}
                                 </button>
                             </div>
                         </div>
@@ -578,10 +578,10 @@ export function ClubProfile({ language, socket }) {
                         ) : (
                             <div className="bg-slate-800/20 border border-slate-700/50 rounded-2xl p-6 h-fit text-center">
                                 <h3 className="text-lg font-bold mb-4 flex items-center justify-center gap-2">
-                                    <MessageSquare className="text-slate-500" /> Club Chat
+                                    <MessageSquare className="text-slate-500" /> {t.clubChat}
                                 </h3>
                                 <p className="text-slate-400 text-sm italic py-8 border border-dashed border-slate-700 rounded-xl">
-                                    Join the club to access the chat.
+                                    {t.joinToChat}
                                 </p>
                             </div>
                         )}
@@ -595,17 +595,17 @@ export function ClubProfile({ language, socket }) {
                 showJoinModal && (
                     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-sm p-4">
                         <div className="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-md w-full animate-scale-in">
-                            <h3 className="text-2xl font-bold mb-4">Join {club.name}</h3>
+                            <h3 className="text-2xl font-bold mb-4">{t.join} {club.name}</h3>
                             <textarea
                                 value={joinMsg}
                                 onChange={e => setJoinMsg(e.target.value)}
                                 className="w-full bg-slate-950 p-4 rounded-xl border border-slate-700 text-white mb-4 focus:border-emerald-500 outline-none"
-                                placeholder="Tell them why you want to join..."
+                                placeholder={t.joinRequestPlaceholder}
                                 rows={4}
                             />
                             <div className="flex gap-3">
-                                <button onClick={() => setShowJoinModal(false)} className="flex-1 py-3 bg-slate-800 rounded-xl font-bold hover:bg-slate-700">Cancel</button>
-                                <button onClick={handleJoinRequest} className="flex-1 py-3 bg-emerald-600 rounded-xl font-bold hover:bg-emerald-500">Send Request</button>
+                                <button onClick={() => setShowJoinModal(false)} className="flex-1 py-3 bg-slate-800 rounded-xl font-bold hover:bg-slate-700">{t.cancel}</button>
+                                <button onClick={handleJoinRequest} className="flex-1 py-3 bg-emerald-600 rounded-xl font-bold hover:bg-emerald-500">{t.sendRequest}</button>
                             </div>
                         </div>
                     </div>
@@ -623,8 +623,8 @@ export function ClubProfile({ language, socket }) {
                             >
                                 <XCircle size={24} />
                             </button>
-                            <h3 className="text-2xl font-bold mb-4">Invite to {club.name}</h3>
-                            <p className="text-slate-400 text-sm mb-4">Search for users by username (min 3 chars)</p>
+                            <h3 className="text-2xl font-bold mb-4">{t.inviteTo} {club.name}</h3>
+                            <p className="text-slate-400 text-sm mb-4">{t.inviteUpdated}</p>
 
                             <div className="relative mb-6">
                                 <input
@@ -635,7 +635,7 @@ export function ClubProfile({ language, socket }) {
                                         setShowSuggestions(true);
                                     }}
                                     className="w-full bg-slate-950 p-4 rounded-xl border border-slate-700 text-white focus:border-blue-500 outline-none"
-                                    placeholder="Type username..."
+                                    placeholder={t.usernamePlaceholder}
                                 />
                                 {/* Suggestions List */}
                                 {showSuggestions && inviteSuggestions.length > 0 && (
@@ -663,8 +663,8 @@ export function ClubProfile({ language, socket }) {
                             </div>
 
                             <div className="flex gap-3">
-                                <button onClick={() => { setShowInviteModal(false); setInviteUsername(''); }} className="flex-1 py-3 bg-slate-800 rounded-xl font-bold hover:bg-slate-700">Cancel</button>
-                                <button onClick={handleInvite} className="flex-1 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500">Send Invite</button>
+                                <button onClick={() => { setShowInviteModal(false); setInviteUsername(''); }} className="flex-1 py-3 bg-slate-800 rounded-xl font-bold hover:bg-slate-700">{t.cancel}</button>
+                                <button onClick={handleInvite} className="flex-1 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500">{t.sendInvite}</button>
                             </div>
                         </div>
                     </div>
@@ -684,7 +684,7 @@ export function ClubProfile({ language, socket }) {
                             </button>
 
                             <h3 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                                <Settings className="text-slate-400" /> Club Settings
+                                <Settings className="text-slate-400" /> {t.clubSettings}
                             </h3>
 
                             {!deleteConfirm ? (
@@ -693,10 +693,10 @@ export function ClubProfile({ language, socket }) {
                                         onClick={() => setDeleteConfirm(true)}
                                         className="w-full py-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl font-bold hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2"
                                     >
-                                        <Trash2 size={20} /> Delete Club
+                                        <Trash2 size={20} /> {t.deleteClub}
                                     </button>
                                     <p className="text-slate-500 text-sm text-center">
-                                        Only the owner can delete the club. This action is irreversible.
+                                        {t.deleteClubWarning}
                                     </p>
                                 </div>
                             ) : (
@@ -704,9 +704,9 @@ export function ClubProfile({ language, socket }) {
                                     <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto text-red-500 mb-2">
                                         <AlertTriangle size={32} />
                                     </div>
-                                    <h3 className="text-xl font-bold text-white">Are you absolutely sure?</h3>
+                                    <h3 className="text-xl font-bold text-white">{t.areYouSure}</h3>
                                     <p className="text-slate-400 text-sm">
-                                        This will permanently delete "{club.name}" and remove all member associations. This action cannot be undone.
+                                        {t.deleteClubConfirm}
                                     </p>
 
                                     <div className="flex gap-3 pt-4">
@@ -714,13 +714,13 @@ export function ClubProfile({ language, socket }) {
                                             onClick={() => setDeleteConfirm(false)}
                                             className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-all"
                                         >
-                                            Cancel
+                                            {t.cancel}
                                         </button>
                                         <button
                                             onClick={handleDeleteClub}
                                             className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-red-900/30"
                                         >
-                                            Yes, Delete It
+                                            {t.deleteIt}
                                         </button>
                                     </div>
                                 </div>

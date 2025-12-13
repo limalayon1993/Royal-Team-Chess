@@ -111,7 +111,7 @@ export function UserStatistics({ language }) {
                     onClick={() => navigate(`/profile/${userId}`)}
                     className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors uppercase font-bold text-sm tracking-widest"
                 >
-                    <ArrowLeft size={16} /> {t.backToProfile || "Back to Profile"}
+                    <ArrowLeft size={16} /> {t.backToProfile}
                 </button>
             </div>
 
@@ -122,16 +122,16 @@ export function UserStatistics({ language }) {
                     <div>
                         <h1 className="text-4xl font-black text-white mb-2 flex items-center gap-3">
                             <Activity className="text-blue-500" size={32} />
-                            {t.statistics || "Season Statistics"}
+                            {t.statistics}
                         </h1>
                         <p className="text-slate-400 text-lg">
-                            {username} • {t.season || "Season"}: <span className="text-blue-400 font-mono font-bold">{selectedSeason}</span>
+                            {username} • {t.season}: <span className="text-blue-400 font-mono font-bold">{selectedSeason}</span>
                         </p>
                     </div>
 
                     <div className="relative z-20">
                         <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">
-                            {t.history || "History"}
+                            {t.history}
                         </label>
                         <div className="relative">
                             <select
@@ -139,14 +139,14 @@ export function UserStatistics({ language }) {
                                 onChange={(e) => setSelectedSeason(e.target.value)}
                                 className="appearance-none bg-slate-800 border border-slate-600 text-white rounded-xl py-3 pl-4 pr-10 font-mono font-bold hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all w-48 cursor-pointer"
                             >
-                                <option value="" disabled>Select Season</option>
-                                {history.length === 0 && <option value={selectedSeason}>{selectedSeason} (Current)</option>}
+                                <option value="" disabled>{t.selectSeason}</option>
+                                {history.length === 0 && <option value={selectedSeason}>{selectedSeason} ({t.current})</option>}
                                 {history.map(h => (
                                     <option key={h} value={h}>{h}</option>
                                 ))}
                                 {/* If current season not in history yet (no games maybe?), ensure it's selectable if active */}
                                 {!history.includes(selectedSeason) && (
-                                    <option value={selectedSeason}>{selectedSeason} (Current)</option>
+                                    <option value={selectedSeason}>{selectedSeason} ({t.current})</option>
                                 )}
                             </select>
                             <History size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -161,7 +161,7 @@ export function UserStatistics({ language }) {
                             <Trophy size={64} />
                         </div>
                         <div className="relative z-10">
-                            <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">{t.seasonPoints || "Season Points"}</div>
+                            <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">{t.seasonPoints}</div>
                             <div className="text-4xl font-black text-blue-400">{stats.season_points}</div>
                         </div>
                     </div>
@@ -171,7 +171,7 @@ export function UserStatistics({ language }) {
                             <Activity size={64} />
                         </div>
                         <div className="relative z-10">
-                            <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">{t.gamesPlayed || "Games Played"}</div>
+                            <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">{t.gamesPlayed}</div>
                             <div className="text-4xl font-black text-white">{stats.games_played}</div>
                         </div>
                     </div>
@@ -181,7 +181,7 @@ export function UserStatistics({ language }) {
                             <PieChart size={64} />
                         </div>
                         <div className="relative z-10">
-                            <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">{t.winRate || "Win Rate"}</div>
+                            <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">{t.winRate}</div>
                             <div className="text-4xl font-black text-emerald-400">{winRate}%</div>
                         </div>
                     </div>
@@ -191,7 +191,7 @@ export function UserStatistics({ language }) {
                             <Swords size={64} />
                         </div>
                         <div className="relative z-10">
-                            <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Win/Loss Diff</div>
+                            <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">{t.winLossDiff}</div>
                             <div className={`text-4xl font-black ${diffColor}`}>{diffSign}{diff}</div>
                         </div>
                     </div>
@@ -203,22 +203,22 @@ export function UserStatistics({ language }) {
                     {/* Game Outcomes Table */}
                     <div className="bg-slate-800/30 rounded-3xl p-8 border border-slate-700/50">
                         <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                            <Swords size={20} className="text-purple-400" /> Game Outcomes
+                            <Swords size={20} className="text-purple-400" /> {t.gameOutcomes}
                         </h3>
 
                         <div className="space-y-4">
                             {/* Header */}
                             <div className="grid grid-cols-4 text-xs font-bold text-slate-500 uppercase tracking-wider pb-2 border-b border-slate-700">
-                                <div>Result</div>
-                                <div className="text-center">Total</div>
-                                <div className="text-center text-emerald-400">Wins</div>
-                                <div className="text-center text-red-400">Losses</div>
+                                <div>{t.result}</div>
+                                <div className="text-center">{t.total}</div>
+                                <div className="text-center text-emerald-400">{t.wins}</div>
+                                <div className="text-center text-red-400">{t.losses}</div>
                             </div>
 
                             {/* Checkmate */}
                             <div className="grid grid-cols-4 items-center">
                                 <div className="flex items-center gap-2 text-slate-300 font-medium">
-                                    <Swords size={14} className="text-slate-500" /> Checkmate
+                                    <Swords size={14} className="text-slate-500" /> {t.checkmate}
                                 </div>
                                 <div className="text-center font-bold text-slate-200">
                                     {stats.wins_checkmate + stats.losses_checkmate}
@@ -234,7 +234,7 @@ export function UserStatistics({ language }) {
                             {/* Time */}
                             <div className="grid grid-cols-4 items-center">
                                 <div className="flex items-center gap-2 text-slate-300 font-medium">
-                                    <Clock size={14} className="text-slate-500" /> Timeout
+                                    <Clock size={14} className="text-slate-500" /> {t.timeout}
                                 </div>
                                 <div className="text-center font-bold text-slate-200">
                                     {stats.wins_time + stats.losses_time}
@@ -250,7 +250,7 @@ export function UserStatistics({ language }) {
                             {/* Resignation */}
                             <div className="grid grid-cols-4 items-center">
                                 <div className="flex items-center gap-2 text-slate-300 font-medium">
-                                    <Flag size={14} className="text-slate-500" /> Resignation
+                                    <Flag size={14} className="text-slate-500" /> {t.resignation}
                                 </div>
                                 <div className="text-center font-bold text-slate-200">
                                     {stats.wins_resignation + stats.losses_resignation}
@@ -265,7 +265,7 @@ export function UserStatistics({ language }) {
                         </div>
 
                         <div className="mt-8 pt-6 border-t border-slate-700/50 flex justify-between items-center">
-                            <div className="text-sm font-medium text-slate-400">Total Draws</div>
+                            <div className="text-sm font-medium text-slate-400">{t.totalDraws}</div>
                             <div className="text-xl font-bold text-slate-200">{stats.draws}</div>
                         </div>
                     </div>
@@ -273,13 +273,13 @@ export function UserStatistics({ language }) {
                     {/* Fun Stats */}
                     <div className="bg-slate-800/30 rounded-3xl p-8 border border-slate-700/50">
                         <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                            <Info size={20} className="text-blue-400" /> Performance
+                            <Info size={20} className="text-blue-400" /> {t.performance}
                         </h3>
 
                         <div className="space-y-6">
                             <div>
                                 <div className="flex justify-between mb-2">
-                                    <span className="text-sm font-bold text-slate-400 uppercase">Pieces Captured</span>
+                                    <span className="text-sm font-bold text-slate-400 uppercase">{t.piecesCaptured}</span>
                                     <span className="text-2xl font-black text-white">{stats.pieces_eaten}</span>
                                 </div>
                                 <div className="h-2 w-full bg-slate-700/50 rounded-full overflow-hidden">
@@ -289,7 +289,7 @@ export function UserStatistics({ language }) {
                                         style={{ width: `${Math.min((stats.pieces_eaten / 100) * 100, 100)}%` }}
                                     ></div>
                                 </div>
-                                <p className="text-xs text-slate-500 mt-2">Total enemy pieces removed from the board this season.</p>
+                                <p className="text-xs text-slate-500 mt-2">{t.piecesCapturedDesc}</p>
                             </div>
 
                             <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-800">
@@ -298,10 +298,10 @@ export function UserStatistics({ language }) {
                                         <Info size={18} />
                                     </div>
                                     <div>
-                                        <h4 className="text-sm font-bold text-slate-200 mb-1">Season Reset</h4>
+                                        <h4 className="text-sm font-bold text-slate-200 mb-1">{t.seasonReset}</h4>
                                         <p className="text-xs text-slate-400 leading-relaxed">
-                                            Statistics reset automatically on the 1st of every month (00:00 Spain Time).
-                                            Past performance is saved to History.
+                                            {t.seasonResetDesc}
+                                            {t.historySaved}
                                         </p>
                                     </div>
                                 </div>

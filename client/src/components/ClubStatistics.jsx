@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { translations } from '../translations';
 import { BarChart2, Calendar, Trophy, XCircle, MinusCircle, CheckCircle } from 'lucide-react';
 
-export function ClubStatistics({ clubId }) {
+export function ClubStatistics({ clubId, language = 'en' }) {
     const [stats, setStats] = useState(null);
     const [history, setHistory] = useState([]);
     const [selectedSeason, setSelectedSeason] = useState('');
     const [loading, setLoading] = useState(true);
+    const t = translations[language];
 
     // Initial Load
     useEffect(() => {
@@ -80,13 +82,13 @@ export function ClubStatistics({ clubId }) {
         }
     };
 
-    if (loading && !stats) return <div className="p-8 text-center text-slate-500">Loading stats...</div>;
+    if (loading && !stats) return <div className="p-8 text-center text-slate-500">{t.loadingStats}</div>;
 
     return (
         <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl">
             <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold flex items-center gap-2">
-                    <BarChart2 className="text-emerald-400" /> Season Statistics
+                    <BarChart2 className="text-emerald-400" /> {t.seasonStatistics}
                 </h3>
 
                 <div className="relative">
@@ -106,25 +108,25 @@ export function ClubStatistics({ clubId }) {
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
-                    label="Season Points"
+                    label={t.seasonPoints}
                     value={stats.season_points}
                     icon={<Trophy size={24} className="text-amber-400" />}
                     bg="bg-amber-900/10 border-amber-500/20"
                 />
                 <StatCard
-                    label="Wins"
+                    label={t.wins || "Wins"}
                     value={stats.games_won}
                     icon={<CheckCircle size={24} className="text-green-400" />}
                     bg="bg-green-900/10 border-green-500/20"
                 />
                 <StatCard
-                    label="Losses"
+                    label={t.losses}
                     value={stats.games_lost}
                     icon={<XCircle size={24} className="text-red-400" />}
                     bg="bg-red-900/10 border-red-500/20"
                 />
                 <StatCard
-                    label="Draws"
+                    label={t.draws}
                     value={stats.games_drawn}
                     icon={<MinusCircle size={24} className="text-slate-400" />}
                     bg="bg-slate-700/30 border-slate-600/30"
@@ -132,8 +134,8 @@ export function ClubStatistics({ clubId }) {
             </div>
 
             <div className="mt-4 pt-4 border-t border-slate-700/50 flex justify-between text-sm text-slate-500 font-medium">
-                <span>Games Played: {stats.games_played}</span>
-                <span>Win Rate: {stats.games_played > 0 ? Math.round((stats.games_won / stats.games_played) * 100) : 0}%</span>
+                <span>{t.gamesPlayed}: {stats.games_played}</span>
+                <span>{t.winRate}: {stats.games_played > 0 ? Math.round((stats.games_won / stats.games_played) * 100) : 0}%</span>
             </div>
         </div>
     );

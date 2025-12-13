@@ -99,7 +99,7 @@ export function ClubChat({ clubId, user, language = 'en' }) {
 
         if (error) {
             console.error('Error sending message:', error);
-            alert('Failed to send message.');
+            alert(t.sendFailed);
         }
     };
 
@@ -107,7 +107,7 @@ export function ClubChat({ clubId, user, language = 'en' }) {
         return (
             <div className="flex flex-col items-center justify-center h-full text-slate-500 py-10">
                 <Loader className="animate-spin mb-2" />
-                <p>Loading chat...</p>
+                <p>{t.loadingChat}</p>
             </div>
         );
     }
@@ -117,10 +117,10 @@ export function ClubChat({ clubId, user, language = 'en' }) {
             {/* Header */}
             <div className="p-4 border-b border-slate-700/50 bg-slate-800/40 backdrop-blur-sm flex items-center justify-between">
                 <h3 className="text-lg font-bold flex items-center gap-2 text-white">
-                    <MessageSquare className="text-purple-400" /> Club Chat
+                    <MessageSquare className="text-purple-400" /> {t.clubChat}
                 </h3>
                 <span className="text-xs text-slate-400 font-mono">
-                    {messages.length} messages
+                    {messages.length} {t.messagesLower}
                 </span>
             </div>
 
@@ -129,7 +129,7 @@ export function ClubChat({ clubId, user, language = 'en' }) {
                 {messages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-slate-500 italic opacity-60">
                         <MessageSquare size={48} className="mb-2" />
-                        <p>No messages yet. Say hello!</p>
+                        <p>{t.noMessages}</p>
                     </div>
                 ) : (
                     messages.map((msg, idx) => {
@@ -140,7 +140,7 @@ export function ClubChat({ clubId, user, language = 'en' }) {
                             <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                                 {showHeader && !isMe && (
                                     <span className="text-xs text-slate-400 mb-1 ml-2 font-bold">
-                                        {msg.sender?.username || 'Unknown'}
+                                        {msg.sender?.username || t.unknown}
                                     </span>
                                 )}
 
@@ -162,8 +162,8 @@ export function ClubChat({ clubId, user, language = 'en' }) {
 
                                     <div
                                         className={`px-4 py-2 rounded-2xl text-sm break-words shadow-sm ${isMe
-                                                ? 'bg-purple-600 text-white rounded-tr-none'
-                                                : 'bg-slate-700 text-slate-200 rounded-tl-none'
+                                            ? 'bg-purple-600 text-white rounded-tr-none'
+                                            : 'bg-slate-700 text-slate-200 rounded-tl-none'
                                             }`}
                                     >
                                         {msg.content}
@@ -187,7 +187,7 @@ export function ClubChat({ clubId, user, language = 'en' }) {
                         type="text"
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Type a message to the club..."
+                        placeholder={t.chatPlaceholder}
                         className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 transition-all placeholder:text-slate-600"
                     />
                     <button

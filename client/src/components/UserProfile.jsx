@@ -137,7 +137,7 @@ export function UserProfile({ language }) {
                     onClick={() => navigate('/', { state: { view: 'main' } })}
                     className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
                 >
-                    <ArrowLeft size={20} /> Back to Menu
+                    <ArrowLeft size={20} /> {t.backToMenu}
                 </button>
             </div>
 
@@ -174,14 +174,14 @@ export function UserProfile({ language }) {
                                         <Shield size={14} /> {profile.club.name}
                                         {profile.club.division && (
                                             <span className="bg-purple-500/20 text-purple-200 px-2 py-0.5 rounded ml-1 text-xs">
-                                                Div {profile.club.division}
+                                                {t.division} {profile.club.division}
                                             </span>
                                         )}
                                     </button>
                                 )}
                                 {!profile.club && (
                                     <div className="px-4 py-1.5 bg-slate-800 border border-slate-700 rounded-full text-slate-400 font-bold text-sm uppercase tracking-wide flex items-center gap-2">
-                                        <Shield size={14} /> Free Agent
+                                        <Shield size={14} /> {t.freeAgent}
                                     </div>
                                 )}
                             </div>
@@ -192,7 +192,7 @@ export function UserProfile({ language }) {
                                     onClick={() => navigate(`/profile/${userId}/stats`)}
                                     className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold transition-all hover:scale-105 border border-slate-700 flex items-center gap-2"
                                 >
-                                    <Activity size={18} className="text-purple-400" /> {t.moreStats || "More Stats"}
+                                    <Activity size={18} className="text-purple-400" /> {t.moreStats}
                                 </button>
                                 {/* Conditional Button Logic */}
                                 {isOwnProfile ? (
@@ -201,7 +201,7 @@ export function UserProfile({ language }) {
                                             onClick={() => setShowEditModal(true)}
                                             className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold transition-all hover:scale-105 border border-slate-600 flex items-center gap-2 cursor-pointer"
                                         >
-                                            Edit Profile
+                                            {t.editProfile}
                                         </button>
                                     </>
                                 ) : (
@@ -210,7 +210,7 @@ export function UserProfile({ language }) {
                                             onClick={() => navigate('/', { state: { view: 'main' } })}
                                             className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all hover:scale-105 shadow-lg shadow-blue-900/30 flex items-center gap-2"
                                         >
-                                            <MessageSquare size={18} /> {t.sendMessage || "Send Message"}
+                                            <MessageSquare size={18} /> {t.sendMessage}
                                         </button>
 
                                         {isFriend ? (
@@ -218,14 +218,14 @@ export function UserProfile({ language }) {
                                                 onClick={handleRemoveFriend}
                                                 className="px-6 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold transition-all hover:scale-105 shadow-lg shadow-red-900/30 flex items-center gap-2"
                                             >
-                                                <Users size={18} /> {t.removeFriend || "Remove Friend"}
+                                                <Users size={18} /> {t.removeFriend}
                                             </button>
                                         ) : (
                                             <button
                                                 onClick={() => setShowRequestModal(true)}
                                                 className="px-6 py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl font-bold transition-all hover:scale-105 shadow-lg shadow-green-900/30 flex items-center gap-2"
                                             >
-                                                <UserPlus size={18} /> {t.sendFriendRequest || "Send Friend Request"}
+                                                <UserPlus size={18} /> {t.sendFriendRequest}
                                             </button>
                                         )}
                                     </div>
@@ -240,13 +240,13 @@ export function UserProfile({ language }) {
                     {/* Points Card */}
                     <div className="bg-slate-800/40 p-6 rounded-2xl border border-slate-700/50 hover:border-blue-500/30 transition-all group">
                         <div className="flex items-center gap-3 mb-2 text-slate-400 uppercase text-xs font-bold tracking-wider">
-                            <Activity size={16} className="text-blue-400" /> {t.seasonPoints || "Season Points"}
+                            <Activity size={16} className="text-blue-400" /> {t.seasonPoints}
                         </div>
                         <div className="text-4xl font-black text-white mb-1 group-hover:text-blue-300 transition-colors">
                             {stats.points}
                         </div>
                         <div className="text-sm text-slate-500">
-                            {t.rankedPoints || "Ranked Points (Quick Match)"}
+                            {t.rankedPoints}
                         </div>
                     </div>
 
@@ -259,14 +259,14 @@ export function UserProfile({ language }) {
                             {stats.elo}
                         </div>
                         <div className="text-sm text-slate-500">
-                            Global Rating
+                            {t.globalRating}
                         </div>
                     </div>
                 </div>
 
                 {/* Trophies Section */}
                 <div className="mb-8">
-                    <TrophyList entityId={userId} type="PLAYER" title="Trofeos Individuales" />
+                    <TrophyList entityId={userId} type="PLAYER" title={t.individualTrophies} language={language} />
                 </div>
             </div>
 

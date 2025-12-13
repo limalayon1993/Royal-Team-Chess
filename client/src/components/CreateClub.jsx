@@ -22,7 +22,7 @@ export function CreateClub({ language }) {
         setError(null);
 
         if (!user) {
-            setError('You must be logged in.');
+            setError(t.mustBeLoggedIn);
             setLoading(false);
             return;
         }
@@ -47,7 +47,7 @@ export function CreateClub({ language }) {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.error || 'Failed to create club');
+                throw new Error(data.error || t.clubCreationFailed);
             }
 
             // Success! Navigate to the new club
@@ -69,15 +69,15 @@ export function CreateClub({ language }) {
                     onClick={() => navigate('/')}
                     className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-8"
                 >
-                    <ArrowLeft size={20} /> {t.back || "Back"}
+                    <ArrowLeft size={20} /> {t.back}
                 </button>
 
                 <div className="text-center mb-10">
                     <div className="mx-auto w-20 h-20 bg-gradient-to-br from-emerald-500 to-cyan-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-emerald-900/50">
                         <Flag size={40} className="text-white" />
                     </div>
-                    <h1 className="text-4xl font-black mb-2">Create Your Club</h1>
-                    <p className="text-slate-400 text-lg">Lead your team to glory and dominate the leaderboards.</p>
+                    <h1 className="text-4xl font-black mb-2">{t.createClubTitle}</h1>
+                    <p className="text-slate-400 text-lg">{t.createClubSubtitle}</p>
                 </div>
 
                 <div className="glass-panel p-8 border border-slate-700/50">
@@ -90,13 +90,13 @@ export function CreateClub({ language }) {
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div>
-                            <label className="block text-sm font-bold text-slate-400 mb-2 uppercase tracking-wider">Club Name</label>
+                            <label className="block text-sm font-bold text-slate-400 mb-2 uppercase tracking-wider">{t.clubName}</label>
                             <input
                                 type="text"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 px-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500"
-                                placeholder="e.g. The Grandmasters"
+                                placeholder={t.clubNamePlaceholder}
                                 required
                                 minLength={3}
                                 maxLength={30}
@@ -104,18 +104,18 @@ export function CreateClub({ language }) {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-bold text-slate-400 mb-2 uppercase tracking-wider">Motto / Description</label>
+                            <label className="block text-sm font-bold text-slate-400 mb-2 uppercase tracking-wider">{t.clubDescription}</label>
                             <textarea
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                                 className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 px-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 min-h-[100px]"
-                                placeholder="Describe your club..."
+                                placeholder={t.clubDescriptionPlaceholder}
                                 maxLength={200}
                             />
                         </div>
 
                         <div>
-                            <label className="block text-sm font-bold text-slate-400 mb-2 uppercase tracking-wider">Logo URL (Optional)</label>
+                            <label className="block text-sm font-bold text-slate-400 mb-2 uppercase tracking-wider">{t.logoUrl}</label>
                             <input
                                 type="url"
                                 value={logoUrl}
@@ -137,7 +137,7 @@ export function CreateClub({ language }) {
                                 <span className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
                             ) : (
                                 <>
-                                    <Check size={20} /> Create Club
+                                    <Check size={20} /> {t.createClubBtn}
                                 </>
                             )}
                         </button>

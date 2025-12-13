@@ -110,7 +110,7 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
 
     const handleOfferDraw = () => {
         if (drawOfferedByMe) return;
-        if (window.confirm(t.drawConfirm || "Offer a draw?")) {
+        if (window.confirm(t.drawConfirm)) {
             setDrawOfferedByMe(true);
             socket.emit('offerDraw', { roomId });
         }
@@ -149,14 +149,14 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
             {drawOfferReceived && !boardResult && (
                 <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 bg-slate-800 border border-slate-600 p-4 rounded-xl shadow-2xl flex flex-col items-center gap-4 animate-bounce-in">
                     <div className="text-lg font-bold flex items-center gap-2">
-                        <Flag className="text-blue-400" /> {t.drawOffered || "Draw Offered"}
+                        <Flag className="text-blue-400" /> {t.drawOffered}
                     </div>
                     <div className="flex gap-2">
                         <button onClick={handleAcceptDraw} className="px-4 py-2 bg-green-600 hover:bg-green-500 rounded-lg font-bold flex items-center gap-2">
-                            <Check size={16} /> {t.accept || "Accept"}
+                            <Check size={16} /> {t.accept}
                         </button>
                         <button onClick={handleRejectDraw} className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg font-bold flex items-center gap-2">
-                            <X size={16} /> {t.reject || "Reject"}
+                            <X size={16} /> {t.reject}
                         </button>
                     </div>
                 </div>
@@ -169,11 +169,11 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
                         onClick={onLeave}
                         className="p-2 rounded-lg bg-slate-800 hover:bg-red-900/50 text-slate-400 hover:text-red-400 transition-colors border border-slate-700 hover:border-red-500/50 text-xs font-bold uppercase"
                     >
-                        {t.leave || "Leave"}
+                        {t.leave}
                     </button>
                     <h2 className="text-lg font-bold text-slate-300">{t.room}: {roomName || roomId}</h2>
                     <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${role === 'white' ? 'bg-blue-600' : role === 'black' ? 'bg-red-600' : 'bg-slate-600'}`}>
-                        {role === 'white' ? t.white : role === 'black' ? t.black : 'Spectator'}
+                        {role === 'white' ? t.white : role === 'black' ? t.black : t.spectator}
                     </span>
                 </div>
 
@@ -195,7 +195,7 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
                                 onClick={handleOfferDraw}
                                 disabled={drawOfferedByMe}
                                 className={`p-2 rounded-full transition-colors ${drawOfferedByMe ? 'bg-slate-600 cursor-not-allowed opacity-50' : 'bg-blue-900/50 hover:bg-blue-700 text-blue-200 border border-blue-800'}`}
-                                title={t.offerDraw || "Offer Draw"}
+                                title={t.offerDraw}
                             >
                                 <Flag size={16} />
                             </button>
@@ -253,7 +253,7 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
                                                 <div className="flex justify-between items-center">
                                                     <span>{t.yourContribution}:</span>
                                                     <span className={`font-mono ${(boardResult.winner === role || !boardResult.winner) ? 'text-green-400' : 'text-slate-500'}`}>
-                                                        +{(boardResult.winner === role || !boardResult.winner) ? boardResult.points : 0} pts
+                                                        +{(boardResult.winner === role || !boardResult.winner) ? boardResult.points : 0} {t.pts}
                                                     </span>
                                                 </div>
                                             </div>
@@ -450,7 +450,7 @@ function SpectatorView({ data, socket, roomId, t, getPieceIcon }) {
             <div className="flex-1 flex items-center justify-center text-slate-500">
                 <div className="text-center">
                     <Activity size={48} className="mx-auto mb-4 opacity-50" />
-                    <p>{t.waitingForData || "Waiting for game data..."}</p>
+                    <p>{t.waitingForData}</p>
                 </div>
             </div>
         );
@@ -466,7 +466,7 @@ function SpectatorView({ data, socket, roomId, t, getPieceIcon }) {
                             <span className="text-slate-600">vs</span>
                             <span className="text-red-400">{board.black}</span>
                         </h3>
-                        <div className="text-xs font-mono text-slate-500">Board {board.boardId + 1}</div>
+                        <div className="text-xs font-mono text-slate-500">{t.board} {board.boardId + 1}</div>
                     </div>
 
                     <div className="flex flex-col md:flex-row gap-12 h-[380px] justify-center items-center">

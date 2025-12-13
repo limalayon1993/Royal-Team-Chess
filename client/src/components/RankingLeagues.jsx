@@ -108,7 +108,7 @@ export function RankingLeagues({ language }) {
                     onClick={() => navigate('/', { state: { view: 'main' } })}
                     className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
                 >
-                    <ArrowLeft size={20} /> {t.back || "Back"}
+                    <ArrowLeft size={20} /> {t.back}
                 </button>
             </div>
 
@@ -117,9 +117,9 @@ export function RankingLeagues({ language }) {
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
                     <div>
                         <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-600 mb-2">
-                            Ranking Leagues
+                            {t.rankingLeagues}
                         </h1>
-                        <p className="text-slate-400">Competing for glory, promotion, and survival.</p>
+                        <p className="text-slate-400">{t.rankingLeaguesSubtitle}</p>
                     </div>
 
                     {/* Filters */}
@@ -130,7 +130,7 @@ export function RankingLeagues({ language }) {
                             className="bg-slate-800 border border-slate-700 text-white px-4 py-2 rounded-xl focus:ring-2 focus:ring-yellow-500 outline-none"
                         >
                             {historySeasons.map(s => (
-                                <option key={s} value={s}>{s === historySeasons[0] ? `${s} (Current)` : s}</option>
+                                <option key={s} value={s}>{s === historySeasons[0] ? `${s} (${t.current})` : s}</option>
                             ))}
                         </select>
 
@@ -140,7 +140,7 @@ export function RankingLeagues({ language }) {
                             className="bg-slate-800 border border-slate-700 text-white px-4 py-2 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-bold"
                         >
                             {[1, 2, 3, 4, 5, 6].map(d => (
-                                <option key={d} value={d}>Division {d}</option>
+                                <option key={d} value={d}>{t.division} {d}</option>
                             ))}
                         </select>
                     </div>
@@ -152,13 +152,13 @@ export function RankingLeagues({ language }) {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-800/80 text-slate-400 uppercase text-xs tracking-wider border-b border-slate-700">
-                                    <th className="p-6 font-bold w-16">#</th>
-                                    <th className="p-6 font-bold">Club</th>
-                                    <th className="p-6 font-bold text-center">PTS</th>
-                                    <th className="p-6 font-bold text-center hidden md:table-cell">W</th>
-                                    <th className="p-6 font-bold text-center hidden md:table-cell">D</th>
-                                    <th className="p-6 font-bold text-center hidden md:table-cell">L</th>
-                                    <th className="p-6 font-bold text-center hidden md:table-cell">Diff</th>
+                                    <th className="p-6 font-bold w-16">{t.rankAbbr}</th>
+                                    <th className="p-6 font-bold">{t.club}</th>
+                                    <th className="p-6 font-bold text-center">{t.ptsAbbr}</th>
+                                    <th className="p-6 font-bold text-center hidden md:table-cell">{t.wAbbr}</th>
+                                    <th className="p-6 font-bold text-center hidden md:table-cell">{t.dAbbr}</th>
+                                    <th className="p-6 font-bold text-center hidden md:table-cell">{t.lAbbr}</th>
+                                    <th className="p-6 font-bold text-center hidden md:table-cell">{t.diffAbbr}</th>
 
                                 </tr>
                             </thead>
@@ -166,7 +166,7 @@ export function RankingLeagues({ language }) {
                                 {loading && (
                                     <tr>
                                         <td colSpan="8" className="p-12 text-center text-slate-500 animate-pulse">
-                                            Loading Standings...
+                                            {t.loadingStandings}
                                         </td>
                                     </tr>
                                 )}
@@ -174,7 +174,7 @@ export function RankingLeagues({ language }) {
                                 {!loading && standings.length === 0 && (
                                     <tr>
                                         <td colSpan="8" className="p-12 text-center text-slate-500">
-                                            No clubs found in this division for this season.
+                                            {t.noClubsFound}
                                         </td>
                                     </tr>
                                 )}
@@ -230,7 +230,7 @@ export function RankingLeagues({ language }) {
                         <>
                             <div className="flex items-center gap-2">
                                 <div className="w-3 h-3 bg-red-500/20 border border-red-500/50 rounded-sm"></div>
-                                Relegation Zone
+                                {t.relegationZone}
                             </div>
                         </>
                     )}
@@ -238,11 +238,11 @@ export function RankingLeagues({ language }) {
                         <>
                             <div className="flex items-center gap-2">
                                 <div className="w-3 h-3 bg-green-500/20 border border-green-500/50 rounded-sm"></div>
-                                Ascenso
+                                {t.promotionZone}
                             </div>
                             <div className="flex items-center gap-2">
                                 <div className="w-3 h-3 bg-red-500/20 border border-red-500/50 rounded-sm"></div>
-                                Relegation Zone
+                                {t.relegationZone}
                             </div>
                         </>
                     )}

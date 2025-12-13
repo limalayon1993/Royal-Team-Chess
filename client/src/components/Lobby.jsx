@@ -101,7 +101,7 @@ export function Lobby({ socket, roomId, roomName, settings, players, ready, isCr
                             onClick={onLeave}
                             className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-red-900/50 text-slate-300 hover:text-red-400 transition-colors border border-slate-700 hover:border-red-500/50"
                         >
-                            {t.leave || "Leave"}
+                            {t.leave}
                         </button>
                         {/* Voice Chat Toggle */}
                         <button
@@ -138,7 +138,7 @@ export function Lobby({ socket, roomId, roomName, settings, players, ready, isCr
                 {/* Match Starting Countdown Banner */}
                 {countdown !== null && (
                     <div className="w-full bg-blue-600/20 border border-blue-500 rounded-xl p-4 flex flex-col items-center justify-center animate-pulse">
-                        <span className="text-blue-300 font-bold uppercase tracking-widest text-sm">MATCH STARTING IN</span>
+                        <span className="text-blue-300 font-bold uppercase tracking-widest text-sm">{t.matchStartingIn}</span>
                         <div className="text-5xl font-black text-white">{countdown}</div>
                     </div>
                 )}
@@ -154,7 +154,7 @@ export function Lobby({ socket, roomId, roomName, settings, players, ready, isCr
                                         onClick={() => socket.emit('leaveTeam', { roomId })}
                                         className="text-xs bg-red-600 px-2 py-1 rounded hover:bg-red-500 text-white"
                                     >
-                                        {t.leave || "Leave"}
+                                        {t.leave}
                                     </button>
                                 )
                             ) : (
@@ -197,7 +197,7 @@ export function Lobby({ socket, roomId, roomName, settings, players, ready, isCr
                                         onClick={() => socket.emit('leaveTeam', { roomId })}
                                         className="text-xs bg-red-600 px-2 py-1 rounded hover:bg-red-500 text-white"
                                     >
-                                        {t.leave || "Leave"}
+                                        {t.leave}
                                     </button>
                                 )
                             ) : (
@@ -234,14 +234,14 @@ export function Lobby({ socket, roomId, roomName, settings, players, ready, isCr
                 {/* Spectators Section */}
                 <div className="glass-panel p-4 bg-slate-800/30 border-slate-700/50 flex flex-col">
                     <h2 className="text-lg font-bold text-slate-400 mb-2 flex justify-between items-center">
-                        <span className="flex items-center gap-2"><Eye size={18} /> {t.spectators || "Spectators"}</span>
+                        <span className="flex items-center gap-2"><Eye size={18} /> {t.spectators}</span>
                         {players.spectators.includes(myId) ? (
                             !settings?.isMatchmaking && (
                                 <button
                                     onClick={() => socket.emit('leaveTeam', { roomId })}
                                     className="text-xs bg-slate-600 px-2 py-1 rounded hover:bg-slate-500 text-white"
                                 >
-                                    {t.leave || "Leave"}
+                                    {t.leave}
                                 </button>
                             )
                         ) : (
@@ -251,7 +251,7 @@ export function Lobby({ socket, roomId, roomName, settings, players, ready, isCr
                                     disabled={inWhite || inBlack}
                                     className="text-xs bg-slate-700 px-2 py-1 rounded hover:bg-slate-600 text-white disabled:opacity-50"
                                 >
-                                    {t.joinSpectator || "Join as Spectator"}
+                                    {t.joinSpectator}
                                 </button>
                             )
                         )}
@@ -262,7 +262,7 @@ export function Lobby({ socket, roomId, roomName, settings, players, ready, isCr
                                 {id === myId ? (usernames[id] ? `${usernames[id]} (${t.you})` : t.you) : (usernames[id] || `${t.player} ${id.substr(0, 4)}`)}
                             </span>
                         )) : (
-                            <span className="text-slate-600 text-sm italic">{t.noSpectators || "No spectators yet"}</span>
+                            <span className="text-slate-600 text-sm italic">{t.noSpectators}</span>
                         )}
                     </div>
                 </div>
