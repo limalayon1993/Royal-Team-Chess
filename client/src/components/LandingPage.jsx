@@ -62,6 +62,102 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
     // Matchmaking State
     const [searchStatus, setSearchStatus] = useState('idle'); // idle, searching, found
 
+    // Club Ranking Logic
+    const [clubStatus, setClubStatus] = useState({ valid: false, reason: '' });
+
+    // Effect: Validate Club Eligibility (Solo & Party)
+    useEffect(() => {
+        const validateClubStatus = async () => {
+            // Case 1: Guest (Assessment: Impossible to play ranked/club)
+            if (!currentUser) {
+                setClubStatus({ valid: false, reason: 'Log in required' });
+                setPlayForClub(false);
+                return;
+            }
+
+            // Define Usernames to check
+            // If Party: All members. If Solo: Just me.
+            const subjectUsernames = party
+                ? party.members.map(m => m.username)
+                : [currentUser.user_metadata?.username || username];
+
+            if (subjectUsernames.length === 0 || !subjectUsernames[0]) return;
+
+            try {
+                // Fetch Profiles + Club Memberships
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select(`
+                        username, 
+                        club_members (
+                            club_id
+                        )
+                    `)
+                    .in('username', subjectUsernames);
+
+                if (error || !data) throw error;
+
+                // Map username -> clubId
+                const clubMap = {};
+                data.forEach(p => {
+                    // club_members is an array (relation), take first if exists
+                    const cId = p.club_members?.[0]?.club_id;
+                    clubMap[p.username] = cId || null;
+                });
+
+                // Validation Logic
+                let isValid = true;
+                let failReason = '';
+                const firstClub = clubMap[subjectUsernames[0]];
+
+                if (party) {
+                    // TEAM RULE: All must have SAME club
+                    if (!firstClub) {
+                        isValid = false;
+                        failReason = t.clubErrorNoClub || "Team leader has no club";
+                    } else {
+                        // Check rest
+                        for (const name of subjectUsernames) {
+                            const c = clubMap[name];
+                            if (!c) {
+                                isValid = false;
+                                failReason = t.clubErrorMemberNoClub || "Some members have no club";
+                                break;
+                            }
+                            if (c !== firstClub) {
+                                isValid = false;
+                                failReason = t.clubErrorMixed || "Members are in different clubs";
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    // SOLO RULE: Must have A club
+                    if (!firstClub) {
+                        isValid = false;
+                        failReason = t.clubErrorSolo || "You must join a club first";
+                    }
+                }
+
+                setClubStatus({ valid: isValid, reason: failReason });
+
+                // User Requirement: "Debe estar encendido de forma predeterminada, siempre y cuando..."
+                // Logic: If transitioning to Valid, default to TRUE.
+                if (isValid) {
+                    setPlayForClub(true);
+                } else {
+                    setPlayForClub(false);
+                }
+
+            } catch (err) {
+                console.error('Club validation error:', err);
+                setClubStatus({ valid: false, reason: 'Validation failed' });
+            }
+        };
+
+        validateClubStatus();
+    }, [currentUser, party, t]);
+
     // Socket Listeners for Matchmaking
     useEffect(() => {
         console.log("LandingPage mounted. Socket:", socket ? "Connected (" + socket.id + ")" : "Undefined");
@@ -983,21 +1079,31 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                 </button>
             </div>
 
-            {/* Play for Club Toggle */}
+            {/* Play for Club Ranking Toggle - Updated Logic */}
             {user && (
-                <div className="mt-6 flex items-center gap-3 bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
-                    <button
-                        onClick={() => setPlayForClub(!playForClub)}
-                        className={`w-12 h-6 rounded-full transition-colors relative ${playForClub ? 'bg-emerald-500' : 'bg-slate-700'}`}
-                    >
-                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-md transition-transform duration-200 ${playForClub ? 'translate-x-7' : 'translate-x-1'}`} />
-                    </button>
-                    <span className={`font-bold ${playForClub ? 'text-emerald-400' : 'text-slate-400'}`}>
-                        Play for Club Ranking
-                    </span>
-                    <Shield size={16} className={playForClub ? 'text-emerald-400' : 'text-slate-500'} />
+                <div className={`mt-6 flex flex-col items-center gap-2 transition-all duration-300 ${clubStatus.valid ? 'opacity-100' : 'opacity-50 grayscale'}`}>
+                    <div className="flex items-center gap-3 bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                        <button
+                            onClick={() => clubStatus.valid && setPlayForClub(!playForClub)}
+                            disabled={!clubStatus.valid}
+                            className={`w-12 h-6 rounded-full transition-colors relative ${playForClub ? 'bg-emerald-500' : 'bg-slate-700'} ${!clubStatus.valid ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-md transition-transform duration-200 ${playForClub ? 'translate-x-7' : 'translate-x-1'}`} />
+                        </button>
+                        <span className={`font-bold ${playForClub ? 'text-emerald-400' : 'text-slate-400'}`}>
+                            Play for Club Ranking
+                        </span>
+                        <Shield size={16} className={playForClub ? 'text-emerald-400' : 'text-slate-500'} />
+                    </div>
+                    {/* Feedback Text for Disabled State */}
+                    {!clubStatus.valid && (
+                        <span className="text-xs font-bold text-red-400 animate-pulse">
+                            {clubStatus.reason || "Club requirements not met"}
+                        </span>
+                    )}
                 </div>
             )}
+
         </div>
     );
 
