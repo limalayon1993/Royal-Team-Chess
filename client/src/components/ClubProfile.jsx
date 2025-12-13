@@ -79,6 +79,7 @@ export function ClubProfile({ language, socket }) {
                 .select(`
                     role,
                     joined_at,
+                    season_points:season_points_contribution,
                     user:profiles!user_id (id, username, avatar_url, elo)
                 `)
                 .eq('club_id', clubId);
