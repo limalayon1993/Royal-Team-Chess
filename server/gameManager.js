@@ -721,6 +721,9 @@ class GameManager {
             settings: settings,
             colorPreference,
             timestamp: Date.now(),
+            // Compatibility for processQueue (looks for entry.socket.id)
+            socket: group[0].socket,
+            username: group[0].username,
             // Calculated ELO for matchmaking? 
             // For now, use Leader's ELO or Max? 
             // Let's use Average.
@@ -869,8 +872,8 @@ class GameManager {
         const eloDiff = Math.abs(e1.elo - e2.elo); // Using Avg ELO
 
         console.log(`[Matchmaking] Compat Check:
-          A: ${e1.username} (${e1.elo}) Wait: ${waitA.toFixed(1)}s
-          B: ${e2.username} (${e2.elo}) Wait: ${waitB.toFixed(1)}s
+          A: ${e1.username || e1.socket.id} (${e1.elo}) Wait: ${waitA.toFixed(1)}s
+          B: ${e2.username || e2.socket.id} (${e2.elo}) Wait: ${waitB.toFixed(1)}s
           Diff: ${eloDiff} | Threshold: ${eloThreshold} | MaxWait: ${maxWait.toFixed(1)}s`);
 
         if (eloDiff > eloThreshold) {
