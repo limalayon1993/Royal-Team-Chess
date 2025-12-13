@@ -49,32 +49,32 @@ export const AuthProvider = ({ children }) => {
             // But usually simpler to just update state if we trust initial verify.
             // Given the ZOMBIE issues, let's be safe.
 
+            if (mounted) {
+                // UPDATE STATE IMMEDIATELY - Do not wait for profile checks
+                setSession(session);
+                setUser(session?.user ?? null);
+                setLoading(false);
+            }
+
             if (session?.user) {
-                // Quick verify again for new sessions
-                const { data: profile } = await supabase
+                // Background Profile Check (Non-blocking)
+                supabase
                     .from('profiles')
                     .select('id')
                     .eq('id', session.user.id)
-                    .single();
-
-                if (!profile) {
-                    console.warn('[AuthStateChange] Profile missing. Attempting auto-fix in background...');
-                    // AUTO-FIX (Safe, non-blocking)
-                    const serverUrl = 'http://localhost:3000'; // Force Localhost for fixes
-                    fetch(`${serverUrl}/api/admin/force-verify-email`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email: session.user.email })
-                    }).catch(e => console.error(e));
-                }
-            }
-
-            if (mounted) {
-                setSession(session);
-                setUser(session?.user ?? null);
-                // ALWAYS stop loading when we get a definitive state change from the listener
-                // This prevents hanging if initializeAuth() gets stuck but the listener works.
-                setLoading(false);
+                    .single()
+                    .then(({ data: profile }) => {
+                        if (!profile) {
+                            console.warn('[AuthStateChange] Profile missing. Attempting auto-fix in background...');
+                            const serverUrl = 'http://localhost:3000'; // Force Localhost for fixes
+                            fetch(`${serverUrl}/api/admin/force-verify-email`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ email: session.user.email })
+                            }).catch(e => console.error(e));
+                        }
+                    })
+                    .catch(err => console.warn('[AuthContext] Background profile check warning:', err));
             }
         });
 
