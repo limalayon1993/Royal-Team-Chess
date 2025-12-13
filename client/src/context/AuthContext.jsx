@@ -16,36 +16,20 @@ export const AuthProvider = ({ children }) => {
 
         // Initialize via Event Listener (more reliable for cached sessions)
         // Initialize via getSession for immediate persistence check, with safety timeout
+        // Initialize via getSession for immediate persistence check
         const initializeAuth = async () => {
             try {
-                // Race getSession against a 2s timeout to prevent hanging
-                const sessionPromise = supabase.auth.getSession();
-                const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ timeout: true }), 2000));
+                // Standard Supabase Session Check without aggressive timeouts
+                const { data, error } = await supabase.auth.getSession();
 
-                const result = await Promise.race([sessionPromise, timeoutPromise]);
-
-                if (result.timeout) {
-                    console.warn('[AuthContext] Session check timed out. Suspect zombie session. Clearing storage and reloading.');
-                    // Aggressively clear Supabase tokens to fix "clearing cookies" manual requirement
-                    Object.keys(localStorage).forEach(key => {
-                        if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
-                            localStorage.removeItem(key);
-                        }
-                    });
-                    // Force reload to ensure clean slate if we think we are in a bad state
-                    // Use a small delay to avoid loop if something is really weird, but mostly just reload.
-                    // Actually, just defaulting to public view is safe for now, but if the user CANNOT login, we must kill the bad token.
-                    // The issue is that even if we default to public, the next "SignIn" attempt might hang if the bad token persists.
-                    // So we MUST clear it.
-                } else if (result.data?.session) {
-                    const { session } = result.data;
+                if (data?.session) {
                     if (mounted) {
-                        console.log('[AuthContext] Session found on init:', session.user.email);
-                        setSession(session);
-                        setUser(session.user);
+                        console.log('[AuthContext] Session found on init:', data.session.user.email);
+                        setSession(data.session);
+                        setUser(data.session.user);
                     }
-                } else if (result.error) {
-                    throw result.error;
+                } else if (error) {
+                    throw error;
                 }
             } catch (err) {
                 console.warn('[AuthContext] Session init failed:', err.message);
