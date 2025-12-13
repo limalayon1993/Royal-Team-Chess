@@ -1724,65 +1724,7 @@ class GameManager {
         return base + growth;
     }
 
-    processQueue() {
-        if (this.matchmakingQueue.size < 2) return;
 
-        // Convert Map values to Array for sorting
-        const queueArray = Array.from(this.matchmakingQueue.values());
-
-        // Sort by timestamp (FCFS)
-        queueArray.sort((a, b) => a.timestamp - b.timestamp);
-
-        while (queueArray.length >= 2) {
-            const p1 = queueArray.shift();
-            // Simple logic: take the next person
-            const p2 = queueArray.shift();
-
-            // Create Match
-            const roomId = `match_${p1.socket.id}_${p2.socket.id}`;
-            const settings = p1.settings || {}; // Default settings from p1
-
-            // Extract Club IDs if any
-            const clubIds = {
-                white: p1.clubId || null,
-                black: p2.clubId || null
-            };
-
-            // Add to settings so createRoom picks it up
-            settings.clubIds = clubIds;
-
-            // Remove from Map
-            this.matchmakingQueue.delete(p1.socket.id);
-            this.matchmakingQueue.delete(p2.socket.id);
-
-            // Notify them (and their party members)
-            const notifyFound = (entry) => {
-                if (entry.isParty) {
-                    entry.group.forEach(m => {
-                        if (m.socket) m.socket.emit('matchmakingStatus', { status: 'found', roomId });
-                    });
-                } else {
-                    entry.socket.emit('matchmakingStatus', { status: 'found', roomId });
-                }
-            };
-            notifyFound(p1);
-            notifyFound(p2);
-
-            this.createRoom(null, {
-                roomId,
-                username: 'System',
-                settings,
-                roomName: 'Ranked Match',
-                isPrivate: false,
-                isMatchmaking: true
-            });
-
-            // Join them
-            // Use _executeJoin for robustness with groups
-            this._executeJoin(p1.group, roomId, 'white', settings);
-            this._executeJoin(p2.group, roomId, 'black', settings);
-        }
-    }
 }
 
 module.exports = GameManager;
