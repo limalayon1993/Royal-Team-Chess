@@ -709,6 +709,42 @@ async function updateClubStats(clubId, seasonId, statsIncrement) {
 }
 
 /**
+ * Increment Member Contribution (e.g. Season Points for internal ranking)
+ */
+async function incrementMemberContribution(username, clubId, points) {
+    if (!isConnected || !username || !clubId) return;
+    try {
+        // 1. Get User ID
+        const { data: user } = await supabase.from('profiles').select('id').eq('username', username).single();
+        if (!user) return;
+
+        // 2. Increment
+        // We need to fetch current, add, update. Or use RPC.
+        const { data: member, error: fetchError } = await supabase
+            .from('club_members')
+            .select('season_points_contribution')
+            .eq('club_id', clubId)
+            .eq('user_id', user.id)
+            .single();
+
+        if (fetchError || !member) return;
+
+        const newScore = (member.season_points_contribution || 0) + points;
+
+        await supabase
+            .from('club_members')
+            .update({ season_points_contribution: newScore })
+            .eq('club_id', clubId)
+            .eq('user_id', user.id);
+
+        console.log(`[DB] Updated Member Contribution for ${username}: +${points}`);
+
+    } catch (e) {
+        console.error('[DB] incrementMemberContribution error:', e);
+    }
+}
+
+/**
  * Get Club Seasonal Stats (Current or History)
  * If seasonId is null, gets CURRENT season.
  */

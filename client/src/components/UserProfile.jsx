@@ -95,8 +95,18 @@ export function UserProfile({ language }) {
             } else {
                 setProfile({ ...profileData, club: clubBox });
                 // 2. Set Stats from fetched profile data
+                // NEW: Get Season Points from user_stats (latest/current season)
+                const now = new Date();
+                const currentSeasonId = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                const { data: statsData } = await supabase
+                    .from('user_stats')
+                    .select('season_points')
+                    .eq('user_id', userId)
+                    .eq('season_id', currentSeasonId)
+                    .maybeSingle();
+
                 setStats({
-                    points: profileData.points || 0,
+                    points: statsData?.season_points || 0, // CORRECT SOURCE
                     matchesPlayed: (profileData.wins || 0) + (profileData.losses || 0) + (profileData.draws || 0),
                     wins: profileData.wins || 0,
                     draws: profileData.draws || 0,

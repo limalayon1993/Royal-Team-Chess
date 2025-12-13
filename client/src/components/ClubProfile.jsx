@@ -494,7 +494,7 @@ export function ClubProfile({ language, socket }) {
                                         <div className="text-xs text-slate-500">ELO: {m.user.elo}</div>
                                     </div>
                                     <div className="text-right">
-                                        <div className="font-mono font-bold text-emerald-400">+0 pts</div>
+                                        <div className="font-mono font-bold text-emerald-400">{m.season_points || 0} pts</div>
                                         <div className="text-xs text-slate-500">{t.season}</div>
                                     </div>
                                 </div>

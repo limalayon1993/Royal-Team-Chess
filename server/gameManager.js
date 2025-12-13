@@ -1183,14 +1183,16 @@ class GameManager {
             if (blackToMoveCount > 0) room.timer.black -= delta * blackToMoveCount;
 
             // Check for timeout
+            // NEW LOGIC: Instead of ending match directly, end BOARDs individually by timeout.
+            // This ensures trackBoardStats is called for each board.
             if (room.timer.white <= 0) {
                 room.timer.white = 0;
-                this.endMatch(roomId, 'black', 'timeout');
+                this.forceEndAllActiveBoards(roomId, 'black', 'timeout');
                 return;
             }
             if (room.timer.black <= 0) {
                 room.timer.black = 0;
-                this.endMatch(roomId, 'white', 'timeout');
+                this.forceEndAllActiveBoards(roomId, 'white', 'timeout');
                 return;
             }
 
@@ -1218,6 +1220,18 @@ class GameManager {
         } catch (err) {
             console.error('Error in handleTimeRunOut:', err);
         }
+    }
+
+    forceEndAllActiveBoards(roomId, winner, reason) {
+        const room = this.rooms.get(roomId);
+        if (!room) return;
+
+        // Iterate a copy or check active status carefully
+        room.boards.forEach(board => {
+            if (board.active) {
+                this.handleBoardEnd(roomId, board.id, winner, reason, 3);
+            }
+        });
     }
 
     handleBoardEnd(roomId, boardId, winner, reason, points) {
@@ -1380,6 +1394,25 @@ class GameManager {
             await updateForUser(whiteUser, true);
             await updateForUser(blackUser, false);
 
+            // 5. Update Club Member Contribution (If Club Match)
+            if (room.metadata.clubIds) {
+                const { white: whiteClubId, black: blackClubId } = room.metadata.clubIds;
+
+                // Helper
+                const updateMemberContrib = async (username, clubId, myPoints) => {
+                    if (!username || !clubId) return;
+                    await db.incrementMemberContribution(username, clubId, myPoints);
+                };
+
+                // White Player
+                const whitePoints = (winner === 'white') ? 3 : (winner === 'draw' || winner === null ? 1 : 0);
+                await updateMemberContrib(whiteUser, whiteClubId, whitePoints);
+
+                // Black Player
+                const blackPoints = (winner === 'black') ? 3 : (winner === 'draw' || winner === null ? 1 : 0);
+                await updateMemberContrib(blackUser, blackClubId, blackPoints);
+            }
+
         } catch (e) {
             console.error('[GameManager] Error tracking stats:', e);
         }
@@ -1389,6 +1422,7 @@ class GameManager {
         const room = this.rooms.get(roomId);
         if (!room) return;
 
+        if (room.finished) return; // Prevent double counting/re-entrant calls
         room.active = false;
         room.finished = true;
         if (room.interval) clearInterval(room.interval);
@@ -1397,9 +1431,13 @@ class GameManager {
         if (winner) {
             room.boards.forEach(board => {
                 if (board.active) {
+                    // This path is usually for 'manual' endMatch calls or cleanups.
+                    // Ideally all boards should be ended via handleBoardEnd now.
+                    // But if endMatch is called directly (e.g. server shutdown or force), keep this.
                     board.active = false;
-                    // User requested 2 points per board for timeout/win
-                    const points = 2;
+                    const points = 3; // Timeout/Forced always 3 points? Or 2? User requested 3 for wins generally.
+                    // Actually, earlier code said 2 points for forced/timeout in endMatch?
+                    // But handleBoardEnd uses 3 for wins. Let's standardize to 3.
 
                     if (winner === 'white') room.scores.white += points;
                     else if (winner === 'black') room.scores.black += points;
@@ -1410,335 +1448,339 @@ class GameManager {
                         reason: reason || 'forced',
                         points
                     });
+
+                    // CRITICAL: We should probably track stats here too if this block is hit.
+                    // But with forceEndAllActiveBoards, this block might be redundant for timeouts.
                 }
             });
-        }
+        });
+    }
 
         let matchWinner = winner;
-        if (!matchWinner) {
-            matchWinner = room.scores.white > room.scores.black ? 'white' :
-                room.scores.black > room.scores.white ? 'black' : 'draw';
-        }
+if (!matchWinner) {
+    matchWinner = room.scores.white > room.scores.black ? 'white' :
+        room.scores.black > room.scores.white ? 'black' : 'draw';
+}
 
-        this.io.to(roomId).emit('matchOver', {
-            winner: matchWinner,
-            reason: reason || 'score',
-            scores: room.scores,
-            details: room.boardResults
-        });
+this.io.to(roomId).emit('matchOver', {
+    winner: matchWinner,
+    reason: reason || 'score',
+    scores: room.scores,
+    details: room.boardResults
+});
 
-        // CLUB STATS UPDATE
-        if (room.metadata.clubIds) { // Only if metadata exists
-            const { white: whiteClubId, black: blackClubId } = room.metadata.clubIds;
+// CLUB STATS UPDATE
+if (room.metadata.clubIds) { // Only if metadata exists
+    const { white: whiteClubId, black: blackClubId } = room.metadata.clubIds;
 
-            // Note: Only update if club was involved
-            if (whiteClubId || blackClubId) {
-                // Determine Match Winner
-                // `matchWinner` is 'white', 'black', or 'draw'
+    // Note: Only update if club was involved
+    if (whiteClubId || blackClubId) {
+        // Determine Match Winner
+        // `matchWinner` is 'white', 'black', or 'draw'
 
-                const updateClub = async (cId, isWhiteTeam) => {
-                    if (!cId) return;
+        const updateClub = async (cId, isWhiteTeam) => {
+            if (!cId) return;
 
-                    const myTeam = isWhiteTeam ? 'white' : 'black';
-                    const isWinner = matchWinner === myTeam;
-                    const isDraw = matchWinner === 'draw';
-                    const isLoser = !isWinner && !isDraw;
+            const myTeam = isWhiteTeam ? 'white' : 'black';
+            const isWinner = matchWinner === myTeam;
+            const isDraw = matchWinner === 'draw';
+            const isLoser = !isWinner && !isDraw;
 
-                    const stats = {
-                        games_played: 1,
-                        wins: isWinner ? 1 : 0,
-                        losses: isLoser ? 1 : 0,
-                        draws: isDraw ? 1 : 0,
-                        season_points: isWinner ? 3 : (isDraw ? 1 : 0) // Example Points: 3 for win, 1 for draw
-                    };
+            const stats = {
+                games_played: 1,
+                wins: isWinner ? 1 : 0,
+                losses: isLoser ? 1 : 0,
+                draws: isDraw ? 1 : 0,
+                season_points: isWinner ? 3 : (isDraw ? 1 : 0) // Example Points: 3 for win, 1 for draw
+            };
 
-                    // Calculate Season ID (Strictly Europe/Madrid)
-                    const now = new Date();
-                    const spainTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
-                    const seasonId = `${spainTime.getFullYear()}-${String(spainTime.getMonth() + 1).padStart(2, '0')}`;
+            // Calculate Season ID (Strictly Europe/Madrid)
+            const now = new Date();
+            const spainTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
+            const seasonId = `${spainTime.getFullYear()}-${String(spainTime.getMonth() + 1).padStart(2, '0')}`;
 
-                    await db.updateClubStats(cId, seasonId, stats);
-                    console.log(`[ClubStats] Updated Club ${cId}: ${isWinner ? 'WIN' : (isDraw ? 'DRAW' : 'LOSS')}`);
-                };
-
-                updateClub(whiteClubId, true);
-                updateClub(blackClubId, false);
-            }
-        }
-    }
-
-    broadcastGameState(roomId, board) {
-        const room = this.rooms.get(roomId);
-        const state = {
-            fen: board.game.fen(),
-            turn: board.game.turn(),
-            captures: this.getCaptures(board.game),
-            boardId: board.id
+            await db.updateClubStats(cId, seasonId, stats);
+            console.log(`[ClubStats] Updated Club ${cId}: ${isWinner ? 'WIN' : (isDraw ? 'DRAW' : 'LOSS')}`);
         };
 
-        // Send to specific players
-        this.io.to(board.whitePlayerId).emit('gameState', state);
-        this.io.to(board.blackPlayerId).emit('gameState', state);
+        updateClub(whiteClubId, true);
+        updateClub(blackClubId, false);
+    }
+}
     }
 
-    broadcastVisualizerUpdate(roomId) {
-        const room = this.rooms.get(roomId);
-        if (!room) return;
+broadcastGameState(roomId, board) {
+    const room = this.rooms.get(roomId);
+    const state = {
+        fen: board.game.fen(),
+        turn: board.game.turn(),
+        captures: this.getCaptures(board.game),
+        boardId: board.id
+    };
 
-        // Calculate Averages
-        const totalWhiteTime = room.boards.reduce((acc, b) => acc + b.whiteTimeSpent, 0);
-        const totalBlackTime = room.boards.reduce((acc, b) => acc + b.blackTimeSpent, 0);
-        const avgWhiteTime = room.boards.length > 0 ? totalWhiteTime / room.boards.length : 0;
-        const avgBlackTime = room.boards.length > 0 ? totalBlackTime / room.boards.length : 0;
+    // Send to specific players
+    this.io.to(board.whitePlayerId).emit('gameState', state);
+    this.io.to(board.blackPlayerId).emit('gameState', state);
+}
 
-        const visualizerData = room.boards.map(b => {
-            const whiteBurn = b.whiteTimeSpent > avgWhiteTime ? 2 : 0;
-            const blackBurn = b.blackTimeSpent > avgBlackTime ? 2 : 0;
+broadcastVisualizerUpdate(roomId) {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
 
-            return {
-                boardId: b.id,
-                heatmap: b.heatmap.grid,
-                kingStatus: b.heatmap.kingStatus,
-                burnLevel: { w: whiteBurn, b: blackBurn },
-                analysis: b.analysis,
-                captures: this.getCaptures(b.game),
-                players: {
-                    white: room.usernames.get(b.whitePlayerId) || 'White',
-                    black: room.usernames.get(b.blackPlayerId) || 'Black'
-                }
-            };
-        });
+    // Calculate Averages
+    const totalWhiteTime = room.boards.reduce((acc, b) => acc + b.whiteTimeSpent, 0);
+    const totalBlackTime = room.boards.reduce((acc, b) => acc + b.blackTimeSpent, 0);
+    const avgWhiteTime = room.boards.length > 0 ? totalWhiteTime / room.boards.length : 0;
+    const avgBlackTime = room.boards.length > 0 ? totalBlackTime / room.boards.length : 0;
 
-        this.io.to(roomId).emit('visualizerUpdate', visualizerData);
-    }
+    const visualizerData = room.boards.map(b => {
+        const whiteBurn = b.whiteTimeSpent > avgWhiteTime ? 2 : 0;
+        const blackBurn = b.blackTimeSpent > avgBlackTime ? 2 : 0;
 
-    broadcastSpectatorUpdate(roomId) {
-        const room = this.rooms.get(roomId);
-        if (!room || room.players.spectators.length === 0) return;
-
-        const spectatorData = room.boards.map(b => ({
+        return {
             boardId: b.id,
-            fen: b.game.fen(),
-            white: room.usernames.get(b.whitePlayerId) || 'White',
-            black: room.usernames.get(b.blackPlayerId) || 'Black',
             heatmap: b.heatmap.grid,
             kingStatus: b.heatmap.kingStatus,
-            burnLevel: {
-                w: b.whiteTimeSpent > (room.boards.reduce((acc, brd) => acc + brd.whiteTimeSpent, 0) / room.boards.length) ? 2 : 0,
-                b: b.blackTimeSpent > (room.boards.reduce((acc, brd) => acc + brd.blackTimeSpent, 0) / room.boards.length) ? 2 : 0
-            },
+            burnLevel: { w: whiteBurn, b: blackBurn },
             analysis: b.analysis,
-            captures: this.getCaptures(b.game)
-        }));
-
-        room.players.spectators.forEach(spectatorId => {
-            this.io.to(spectatorId).emit('spectatorUpdate', spectatorData);
-        });
-    }
-
-    getCaptures(game) {
-        const history = game.history({ verbose: true });
-        const captures = { w: [], b: [] };
-
-        history.forEach(move => {
-            if (move.captured) {
-                captures[move.color].push(move.captured);
+            captures: this.getCaptures(b.game),
+            players: {
+                white: room.usernames.get(b.whitePlayerId) || 'White',
+                black: room.usernames.get(b.blackPlayerId) || 'Black'
             }
-        });
-        return captures;
-    }
+        };
+    });
 
-    leaveRoom(socket) {
-        this.handleDisconnect(socket);
-    }
+    this.io.to(roomId).emit('visualizerUpdate', visualizerData);
+}
+
+broadcastSpectatorUpdate(roomId) {
+    const room = this.rooms.get(roomId);
+    if (!room || room.players.spectators.length === 0) return;
+
+    const spectatorData = room.boards.map(b => ({
+        boardId: b.id,
+        fen: b.game.fen(),
+        white: room.usernames.get(b.whitePlayerId) || 'White',
+        black: room.usernames.get(b.blackPlayerId) || 'Black',
+        heatmap: b.heatmap.grid,
+        kingStatus: b.heatmap.kingStatus,
+        burnLevel: {
+            w: b.whiteTimeSpent > (room.boards.reduce((acc, brd) => acc + brd.whiteTimeSpent, 0) / room.boards.length) ? 2 : 0,
+            b: b.blackTimeSpent > (room.boards.reduce((acc, brd) => acc + brd.blackTimeSpent, 0) / room.boards.length) ? 2 : 0
+        },
+        analysis: b.analysis,
+        captures: this.getCaptures(b.game)
+    }));
+
+    room.players.spectators.forEach(spectatorId => {
+        this.io.to(spectatorId).emit('spectatorUpdate', spectatorData);
+    });
+}
+
+getCaptures(game) {
+    const history = game.history({ verbose: true });
+    const captures = { w: [], b: [] };
+
+    history.forEach(move => {
+        if (move.captured) {
+            captures[move.color].push(move.captured);
+        }
+    });
+    return captures;
+}
+
+leaveRoom(socket) {
+    this.handleDisconnect(socket);
+}
 
     async updateElo(roomId, boardId, winner) {
-        const room = this.rooms.get(roomId);
-        const board = room.boards.find(b => b.id === boardId);
-        if (!room || !board) return;
+    const room = this.rooms.get(roomId);
+    const board = room.boards.find(b => b.id === boardId);
+    if (!room || !board) return;
 
-        const whiteUser = room.usernames.get(board.whitePlayerId);
-        const blackUser = room.usernames.get(board.blackPlayerId);
-        if (!whiteUser || !blackUser) return;
+    const whiteUser = room.usernames.get(board.whitePlayerId);
+    const blackUser = room.usernames.get(board.blackPlayerId);
+    if (!whiteUser || !blackUser) return;
 
-        // Use stored values for calculation
-        // (Assuming they were loaded on join, otherwise default 300)
-        const whiteElo = this.userElos.get(whiteUser) || 300;
-        const blackElo = this.userElos.get(blackUser) || 300;
+    // Use stored values for calculation
+    // (Assuming they were loaded on join, otherwise default 300)
+    const whiteElo = this.userElos.get(whiteUser) || 300;
+    const blackElo = this.userElos.get(blackUser) || 300;
 
-        const expectedScoreWhite = elo.getExpected(whiteElo, blackElo);
-        const expectedScoreBlack = elo.getExpected(blackElo, whiteElo);
+    const expectedScoreWhite = elo.getExpected(whiteElo, blackElo);
+    const expectedScoreBlack = elo.getExpected(blackElo, whiteElo);
 
-        let whiteResult = 0.5;
-        if (winner === 'white') whiteResult = 1;
-        else if (winner === 'black') whiteResult = 0;
+    let whiteResult = 0.5;
+    if (winner === 'white') whiteResult = 1;
+    else if (winner === 'black') whiteResult = 0;
 
-        const newWhelo = elo.updateRating(expectedScoreWhite, whiteResult, whiteElo);
-        const newBkelo = elo.updateRating(expectedScoreBlack, 1 - whiteResult, blackElo);
+    const newWhelo = elo.updateRating(expectedScoreWhite, whiteResult, whiteElo);
+    const newBkelo = elo.updateRating(expectedScoreBlack, 1 - whiteResult, blackElo);
 
-        // Update Memory
-        this.userElos.set(whiteUser, newWhelo);
-        this.userElos.set(blackUser, newBkelo);
+    // Update Memory
+    this.userElos.set(whiteUser, newWhelo);
+    this.userElos.set(blackUser, newBkelo);
 
-        // Update DB
-        await db.updateUserElo(whiteUser, newWhelo);
-        await db.updateUserElo(blackUser, newBkelo);
+    // Update DB
+    await db.updateUserElo(whiteUser, newWhelo);
+    await db.updateUserElo(blackUser, newBkelo);
 
-        console.log(`[ELO] ${whiteUser} (${whiteElo}->${newWhelo}) vs ${blackUser} (${blackElo}->${newBkelo})`);
+    console.log(`[ELO] ${whiteUser} (${whiteElo}->${newWhelo}) vs ${blackUser} (${blackElo}->${newBkelo})`);
+}
+
+handleDisconnect(socket) {
+    this.removeFromQueue(socket.id);
+    this.rooms.forEach((room, roomId) => {
+        // Remove from players lists
+        let removed = false;
+        if (room.players.white.includes(socket.id)) {
+            room.players.white = room.players.white.filter(id => id !== socket.id);
+            removed = true;
+        }
+        if (room.players.black.includes(socket.id)) {
+            room.players.black = room.players.black.filter(id => id !== socket.id);
+            removed = true;
+        }
+        if (room.players.spectators.includes(socket.id)) {
+            room.players.spectators = room.players.spectators.filter(id => id !== socket.id);
+            removed = true;
+        }
+
+        // Remove from ready sets
+        room.ready.white.delete(socket.id);
+        room.ready.black.delete(socket.id);
+
+        // Always remove from usernames
+        if (room.usernames.has(socket.id)) {
+            // Keep usernames for match history/reconnection name resolution
+            // room.usernames.delete(socket.id); 
+
+            // If not in any list, we still want to check for verified cleanup if room is really empty
+            if (!removed) removed = true;
+        }
+
+        if (removed) {
+            // Check if room is empty (no active players or spectators)
+            const totalPlayers = room.players.white.length + room.players.black.length + room.players.spectators.length;
+
+            if (totalPlayers === 0) {
+                console.log(`Room ${roomId} is empty. Deleting...`);
+                if (room.interval) clearInterval(room.interval);
+                this.rooms.delete(roomId);
+                this.broadcastRoomsList();
+            } else {
+                this.emitRoomUpdate(roomId);
+                this.broadcastRoomsList(); // Update player counts for others
+            }
+        }
+    });
+}
+
+handleChat(socket, { roomId, message }) {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+
+    // Find sender role
+    const role = room.players.white.includes(socket.id) ? 'white' :
+        room.players.black.includes(socket.id) ? 'black' : 'spectator';
+
+    const chatMsg = { sender: role, text: message };
+
+    // Send only to teammates
+    if (role === 'white') {
+        room.players.white.forEach(id => this.io.to(id).emit('chatMessage', chatMsg));
+    } else if (role === 'black') {
+        room.players.black.forEach(id => this.io.to(id).emit('chatMessage', chatMsg));
     }
+}
 
-    handleDisconnect(socket) {
-        this.removeFromQueue(socket.id);
-        this.rooms.forEach((room, roomId) => {
-            // Remove from players lists
-            let removed = false;
-            if (room.players.white.includes(socket.id)) {
-                room.players.white = room.players.white.filter(id => id !== socket.id);
-                removed = true;
-            }
-            if (room.players.black.includes(socket.id)) {
-                room.players.black = room.players.black.filter(id => id !== socket.id);
-                removed = true;
-            }
-            if (room.players.spectators.includes(socket.id)) {
-                room.players.spectators = room.players.spectators.filter(id => id !== socket.id);
-                removed = true;
-            }
+handleVoice(socket, { roomId, data }) {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
 
-            // Remove from ready sets
-            room.ready.white.delete(socket.id);
-            room.ready.black.delete(socket.id);
+    const role = room.players.white.includes(socket.id) ? 'white' :
+        room.players.black.includes(socket.id) ? 'black' : null;
 
-            // Always remove from usernames
-            if (room.usernames.has(socket.id)) {
-                // Keep usernames for match history/reconnection name resolution
-                // room.usernames.delete(socket.id); 
-
-                // If not in any list, we still want to check for verified cleanup if room is really empty
-                if (!removed) removed = true;
-            }
-
-            if (removed) {
-                // Check if room is empty (no active players or spectators)
-                const totalPlayers = room.players.white.length + room.players.black.length + room.players.spectators.length;
-
-                if (totalPlayers === 0) {
-                    console.log(`Room ${roomId} is empty. Deleting...`);
-                    if (room.interval) clearInterval(room.interval);
-                    this.rooms.delete(roomId);
-                    this.broadcastRoomsList();
-                } else {
-                    this.emitRoomUpdate(roomId);
-                    this.broadcastRoomsList(); // Update player counts for others
-                }
-            }
+    if (role === 'white') {
+        room.players.white.forEach(id => {
+            if (id !== socket.id) this.io.to(id).emit('voiceData', data);
+        });
+    } else if (role === 'black') {
+        room.players.black.forEach(id => {
+            if (id !== socket.id) this.io.to(id).emit('voiceData', data);
         });
     }
+}
 
-    handleChat(socket, { roomId, message }) {
-        const room = this.rooms.get(roomId);
-        if (!room) return;
+handleResign(socket, { roomId }) {
+    const room = this.rooms.get(roomId);
+    if (!room || !room.active) return;
 
-        // Find sender role
-        const role = room.players.white.includes(socket.id) ? 'white' :
-            room.players.black.includes(socket.id) ? 'black' : 'spectator';
+    const board = room.boards.find(b => b.whitePlayerId === socket.id || b.blackPlayerId === socket.id);
+    if (!board || !board.active) return;
 
-        const chatMsg = { sender: role, text: message };
+    const resigningColor = board.whitePlayerId === socket.id ? 'white' : 'black';
+    const winner = resigningColor === 'white' ? 'black' : 'white';
 
-        // Send only to teammates
-        if (role === 'white') {
-            room.players.white.forEach(id => this.io.to(id).emit('chatMessage', chatMsg));
-        } else if (role === 'black') {
-            room.players.black.forEach(id => this.io.to(id).emit('chatMessage', chatMsg));
-        }
-    }
+    console.log(`Player ${socket.id} resigned in room ${roomId}. Winner: ${winner}`);
 
-    handleVoice(socket, { roomId, data }) {
-        const room = this.rooms.get(roomId);
-        if (!room) return;
+    // End board with 'resignation' reason (3 points for winner)
+    this.handleBoardEnd(roomId, board.id, winner, 'resignation', 3);
+}
 
-        const role = room.players.white.includes(socket.id) ? 'white' :
-            room.players.black.includes(socket.id) ? 'black' : null;
+handleOfferDraw(socket, { roomId }) {
+    const room = this.rooms.get(roomId);
+    if (!room || !room.active) return;
 
-        if (role === 'white') {
-            room.players.white.forEach(id => {
-                if (id !== socket.id) this.io.to(id).emit('voiceData', data);
-            });
-        } else if (role === 'black') {
-            room.players.black.forEach(id => {
-                if (id !== socket.id) this.io.to(id).emit('voiceData', data);
-            });
-        }
-    }
+    const board = room.boards.find(b => b.whitePlayerId === socket.id || b.blackPlayerId === socket.id);
+    if (!board || !board.active) return;
 
-    handleResign(socket, { roomId }) {
-        const room = this.rooms.get(roomId);
-        if (!room || !room.active) return;
+    const offeringColor = board.whitePlayerId === socket.id ? 'white' : 'black';
+    const opponentColor = offeringColor === 'white' ? 'black' : 'white';
+    const opponentId = offeringColor === 'white' ? board.blackPlayerId : board.whitePlayerId;
 
-        const board = room.boards.find(b => b.whitePlayerId === socket.id || b.blackPlayerId === socket.id);
-        if (!board || !board.active) return;
+    board.drawOffer = offeringColor;
+    this.io.to(opponentId).emit('drawOffered', { color: offeringColor });
+}
 
-        const resigningColor = board.whitePlayerId === socket.id ? 'white' : 'black';
-        const winner = resigningColor === 'white' ? 'black' : 'white';
+handleAcceptDraw(socket, { roomId }) {
+    const room = this.rooms.get(roomId);
+    if (!room || !room.active) return;
 
-        console.log(`Player ${socket.id} resigned in room ${roomId}. Winner: ${winner}`);
+    const board = room.boards.find(b => b.whitePlayerId === socket.id || b.blackPlayerId === socket.id);
+    if (!board || !board.active || !board.drawOffer) return;
 
-        // End board with 'resignation' reason (3 points for winner)
-        this.handleBoardEnd(roomId, board.id, winner, 'resignation', 3);
-    }
+    // Verify it was offered TO this player
+    const acceptingColor = board.whitePlayerId === socket.id ? 'white' : 'black';
+    if (board.drawOffer === acceptingColor) return; // Cannot accept your own offer
 
-    handleOfferDraw(socket, { roomId }) {
-        const room = this.rooms.get(roomId);
-        if (!room || !room.active) return;
+    console.log(`Draw accepted on board ${board.id}`);
+    this.handleBoardEnd(roomId, board.id, null, 'agreement', 1);
+    board.drawOffer = null; // Clear offer
+}
 
-        const board = room.boards.find(b => b.whitePlayerId === socket.id || b.blackPlayerId === socket.id);
-        if (!board || !board.active) return;
+handleRejectDraw(socket, { roomId }) {
+    const room = this.rooms.get(roomId);
+    if (!room || !room.active) return;
 
-        const offeringColor = board.whitePlayerId === socket.id ? 'white' : 'black';
-        const opponentColor = offeringColor === 'white' ? 'black' : 'white';
-        const opponentId = offeringColor === 'white' ? board.blackPlayerId : board.whitePlayerId;
+    const board = room.boards.find(b => b.whitePlayerId === socket.id || b.blackPlayerId === socket.id);
+    if (!board || !board.active || !board.drawOffer) return;
 
-        board.drawOffer = offeringColor;
-        this.io.to(opponentId).emit('drawOffered', { color: offeringColor });
-    }
+    const rejectingColor = board.whitePlayerId === socket.id ? 'white' : 'black';
+    const offererId = rejectingColor === 'white' ? board.blackPlayerId : board.whitePlayerId;
 
-    handleAcceptDraw(socket, { roomId }) {
-        const room = this.rooms.get(roomId);
-        if (!room || !room.active) return;
+    board.drawOffer = null;
+    this.io.to(offererId).emit('drawRejected');
+}
 
-        const board = room.boards.find(b => b.whitePlayerId === socket.id || b.blackPlayerId === socket.id);
-        if (!board || !board.active || !board.drawOffer) return;
-
-        // Verify it was offered TO this player
-        const acceptingColor = board.whitePlayerId === socket.id ? 'white' : 'black';
-        if (board.drawOffer === acceptingColor) return; // Cannot accept your own offer
-
-        console.log(`Draw accepted on board ${board.id}`);
-        this.handleBoardEnd(roomId, board.id, null, 'agreement', 1);
-        board.drawOffer = null; // Clear offer
-    }
-
-    handleRejectDraw(socket, { roomId }) {
-        const room = this.rooms.get(roomId);
-        if (!room || !room.active) return;
-
-        const board = room.boards.find(b => b.whitePlayerId === socket.id || b.blackPlayerId === socket.id);
-        if (!board || !board.active || !board.drawOffer) return;
-
-        const rejectingColor = board.whitePlayerId === socket.id ? 'white' : 'black';
-        const offererId = rejectingColor === 'white' ? board.blackPlayerId : board.whitePlayerId;
-
-        board.drawOffer = null;
-        this.io.to(offererId).emit('drawRejected');
-    }
-
-    calculateEloThreshold(waitTime) {
-        // Base tolerance: 100 ELO
-        // Increase by 10 ELO for every second waited
-        const base = 100;
-        const growth = Math.floor(waitTime) * 10;
-        return base + growth;
-    }
+calculateEloThreshold(waitTime) {
+    // Base tolerance: 100 ELO
+    // Increase by 10 ELO for every second waited
+    const base = 100;
+    const growth = Math.floor(waitTime) * 10;
+    return base + growth;
+}
 
 
 }
