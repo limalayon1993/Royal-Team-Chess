@@ -681,6 +681,11 @@ async function updateClubStats(clubId, seasonId, statsIncrement) {
             ...(current || {})
         };
 
+        // Remove generated columns or read-only fields that shouldn't be upserted
+        delete newStats.win_loss_diff;
+        delete newStats.id;
+        delete newStats.created_at;
+
         ['games_played', 'games_won', 'games_lost', 'games_drawn', 'season_points'].forEach(f => {
             if (newStats[f] === undefined) newStats[f] = 0;
             if (statsIncrement[f]) newStats[f] += statsIncrement[f];
@@ -1267,6 +1272,7 @@ module.exports = {
     getPlayerTrophies,
     getTrophyByName,
     getLeagueStandings,
-    searchUsers
+    searchUsers,
+    updateUserStatsByUsername
 };
 
