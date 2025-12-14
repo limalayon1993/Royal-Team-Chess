@@ -60,7 +60,8 @@ export function RankingLeagues({ language }) {
             if (error) throw error;
 
             // Client side filter if needed or strictly Division Logic
-            const filtered = data.filter(r => (r.division || 1) === targetDiv);
+            // Robustness Fix: specific division, then club division fallback, then default 1. Loose equality for string/number safety.
+            const filtered = data.filter(r => (r.division || r.club?.division || 1) == targetDiv);
             setStandings(filtered);
             setDivision(targetDiv);
             setSeasonId(targetSeason);
