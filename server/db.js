@@ -1123,16 +1123,17 @@ async function getLeagueStandings(seasonId, division) {
             .select(`
                 club_id,
                 season_points,
-                games_played,
-                games_won,
-                games_lost,
-                games_drawn,
+                matches_played,
+                matches_won,
+                matches_lost,
+                matches_drawn,
                 division,
                 club:clubs (id, name, logo_url)
             `)
             .eq('season_id', seasonId)
             // .eq('division', division) // Temporarily disabled if division column null logic strictly needed, but logic implies we filter by division
-            .order('season_points', { ascending: false });
+            .order('season_points', { ascending: false })
+            .order('matches_won', { ascending: false });
 
         if (error) throw error;
 
@@ -1311,6 +1312,7 @@ module.exports = {
     getTrophyByName,
     getLeagueStandings,
     searchUsers,
-    updateUserStatsByUsername
+    updateUserStatsByUsername,
+    incrementMemberContribution
 };
 

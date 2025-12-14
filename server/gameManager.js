@@ -1337,28 +1337,6 @@ class GameManager {
             const updateForUser = async (username, isWhite) => {
                 if (!username) return;
 
-                // Fetch ID (Optimizable: Cache IDs in Room?)
-                // For now, let's look it up.
-                const { data: uData } = await db.getUserElo(username).then(() => null); // Oops getUserElo returns number.
-                // We need a Lookup.
-                // Let's add `getUserId(username)` to db or query inline.
-                // Actually `updateUserStats` in db.js took `userId`. 
-                // Let's change `updateUserStats` in db.js to accept `username` and lookup internally? 
-                // OR `db.getIdByUsername`.
-                // Let's do `db.getIdByUsername` if it existed.
-                // It doesn't. 
-                // I will add a helper here or directly query if I can import supabase? 
-                // GameManager imports `db`. I can add `getUserId` to `db.js`?
-                // I've already edited `db.js`. I can add one more function or just use a raw query here using the db instance?
-                // `db` module exports `isConnected` but not the `supabase` instance directly (it's internal).
-
-                // Quick Fix: I will add `updateUserStatsByUsername` to db.js? 
-                // Or just modify `updateUserStats` to lookup.
-                // I'll assume for this step I will call a wrapper `db.updateUserStatsByUsername` 
-                // and I need to update `db.js` AGAIN. 
-                // Wait, I can do it in the next tool call. 
-                // For now, let's write the Logic here assuming `db.updateUserStatsByUsername` exists.
-
                 const myColor = isWhite ? 'white' : 'black';
                 const isWinner = winner === myColor;
                 const isDraw = winner === 'draw' || winner === null;

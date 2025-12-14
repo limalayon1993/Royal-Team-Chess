@@ -55,7 +55,7 @@ export function RankingLeagues({ language }) {
                 // For MVP, if division column is null in old rows, we might assume Div 1.
                 // .eq('division', targetDiv); // Uncomment if column exists and populated
                 .order('season_points', { ascending: false })
-                .order('games_won', { ascending: false });
+                .order('matches_won', { ascending: false });
 
             if (error) throw error;
 
@@ -182,7 +182,7 @@ export function RankingLeagues({ language }) {
 
                                 {!loading && standings.map((row, index) => {
                                     const rank = index + 1;
-                                    const diff = (row.games_won || 0) - (row.games_lost || 0); // Simplified Diff
+                                    const diff = (row.matches_won || 0) - (row.matches_lost || 0); // Simplified Diff
 
                                     return (
                                         <tr key={row.club_id} className={`transition-colors ${getRowBg(rank, standings.length)}`}>
@@ -210,9 +210,9 @@ export function RankingLeagues({ language }) {
                                                     {row.season_points || 0}
                                                 </span>
                                             </td>
-                                            <td className="p-6 text-center font-bold text-emerald-400 hidden md:table-cell">{row.games_won || 0}</td>
-                                            <td className="p-6 text-center font-bold text-slate-400 hidden md:table-cell">{row.games_drawn || 0}</td>
-                                            <td className="p-6 text-center font-bold text-red-400 hidden md:table-cell">{row.games_lost || 0}</td>
+                                            <td className="p-6 text-center font-bold text-emerald-400 hidden md:table-cell">{row.matches_won || 0}</td>
+                                            <td className="p-6 text-center font-bold text-slate-400 hidden md:table-cell">{row.matches_drawn || 0}</td>
+                                            <td className="p-6 text-center font-bold text-red-400 hidden md:table-cell">{row.matches_lost || 0}</td>
                                             <td className="p-6 text-center font-bold text-slate-300 hidden md:table-cell">
                                                 {diff > 0 ? `+${diff}` : diff}
                                             </td>

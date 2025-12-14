@@ -106,9 +106,9 @@ export function ClubProfile({ language, socket }) {
                 setLeagueStats({
                     division: clubData.division || 1, // Use club's master division or snapshot
                     points: statsData.season_points || 0,
-                    wins: statsData.games_won || 0,
-                    draws: statsData.games_drawn || 0,
-                    losses: statsData.games_lost || 0
+                    wins: statsData.matches_won || 0,
+                    draws: statsData.matches_drawn || 0,
+                    losses: statsData.matches_lost || 0
                 });
             } else {
                 setLeagueStats({
