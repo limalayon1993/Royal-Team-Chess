@@ -219,6 +219,9 @@ export const translations = {
         roomIdPlaceholder: "Room ID",
         projectInfo: "Project Info",
         playNow: "PLAY NOW",
+
+        confrontationsPlayed: "Games Played", // 1v1 Boards
+        matchesPlayed: "Matches Played", // Team Matches
         betaAccess: "Public Beta Active",
         heroTitle1: "Chess is now a",
         heroTitle2: "Team Sport.",
@@ -376,6 +379,9 @@ export const translations = {
         join: "Unirse",
         projectInfo: "Información del Proyecto",
         playNow: "JUGAR AHORA",
+
+        confrontationsPlayed: "Enfrentamientos Jugados", // Enfrentamientos 1v1
+        gamesPlayed: "Partidas Jugadas", // Matches de Club
 
         betaAccess: "Beta Pública Activa",
         heroTitle1: "El Ajedrez es ahora un",
@@ -635,7 +641,7 @@ export const translations = {
         selectSeason: "Elige Temporada",
         current: "Actual",
         winLossDiff: "Dif. Victorias/Derrotas",
-        gameOutcomes: "Resultados de Partida",
+        gameOutcomes: "Resultados de Enfrentamientos",
         result: "Resultado",
         total: "Total",
         checkmate: "Jaque Mate",

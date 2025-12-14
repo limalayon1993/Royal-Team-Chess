@@ -69,10 +69,10 @@ export function ClubStatistics({ clubId, language = 'en' }) {
 
             if (error) throw error;
             setStats(data || {
-                games_played: 0,
-                games_won: 0,
-                games_lost: 0,
-                games_drawn: 0,
+                matches_played: 0,
+                matches_won: 0,
+                matches_lost: 0,
+                matches_drawn: 0,
                 season_points: 0
             });
         } catch (e) {
@@ -115,27 +115,27 @@ export function ClubStatistics({ clubId, language = 'en' }) {
                 />
                 <StatCard
                     label={t.wins || "Wins"}
-                    value={stats.games_won}
+                    value={stats.matches_won}
                     icon={<CheckCircle size={24} className="text-green-400" />}
                     bg="bg-green-900/10 border-green-500/20"
                 />
                 <StatCard
                     label={t.losses}
-                    value={stats.games_lost}
+                    value={stats.matches_lost}
                     icon={<XCircle size={24} className="text-red-400" />}
                     bg="bg-red-900/10 border-red-500/20"
                 />
                 <StatCard
                     label={t.draws}
-                    value={stats.games_drawn}
+                    value={stats.matches_drawn}
                     icon={<MinusCircle size={24} className="text-slate-400" />}
                     bg="bg-slate-700/30 border-slate-600/30"
                 />
             </div>
 
             <div className="mt-4 pt-4 border-t border-slate-700/50 flex justify-between text-sm text-slate-500 font-medium">
-                <span>{t.gamesPlayed}: {stats.games_played}</span>
-                <span>{t.winRate}: {stats.games_played > 0 ? Math.round((stats.games_won / stats.games_played) * 100) : 0}%</span>
+                <span>{t.gamesPlayed}: {stats.matches_played}</span>
+                <span>{t.winRate}: {stats.matches_played > 0 ? Math.round((stats.matches_won / stats.matches_played) * 100) : 0}%</span>
             </div>
         </div>
     );

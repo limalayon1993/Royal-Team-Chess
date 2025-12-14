@@ -309,7 +309,7 @@ async function updateUserStats(userId, seasonId, statsIncrement) {
 
         // Initialize defaults if creating new
         const fields = [
-            'games_played', 'wins', 'losses', 'draws',
+            'confrontations_played', 'wins', 'losses', 'draws',
             'wins_checkmate', 'wins_time', 'wins_resignation',
             'losses_checkmate', 'losses_time', 'losses_resignation',
             'pieces_eaten', 'season_points'
@@ -457,10 +457,11 @@ async function createClub(name, description, logoUrl, ownerId) {
                 club_id: club.id,
                 season_id: seasonId,
                 season_points: 0,
-                games_played: 0,
-                games_won: 0,
-                games_lost: 0,
-                games_drawn: 0,
+                season_points: 0,
+                matches_played: 0,
+                matches_won: 0,
+                matches_lost: 0,
+                matches_drawn: 0,
                 division: 0 // Default to Division 0 (Pool)
             }]);
 
@@ -686,7 +687,7 @@ async function updateClubStats(clubId, seasonId, statsIncrement) {
         delete newStats.id;
         delete newStats.created_at;
 
-        ['games_played', 'games_won', 'games_lost', 'games_drawn', 'season_points'].forEach(f => {
+        ['matches_played', 'matches_won', 'matches_lost', 'matches_drawn', 'season_points'].forEach(f => {
             if (newStats[f] === undefined) newStats[f] = 0;
             if (statsIncrement[f]) newStats[f] += statsIncrement[f];
         });
@@ -769,10 +770,11 @@ async function getClubStats(clubId, seasonId = null) {
             club_id: clubId,
             season_id: seasonId,
             season_points: 0,
-            games_played: 0,
-            games_won: 0,
-            games_lost: 0,
-            games_drawn: 0
+            season_points: 0,
+            matches_played: 0,
+            matches_won: 0,
+            matches_lost: 0,
+            matches_drawn: 0
         }; // Return default if not found (new season)
     } catch (e) {
         console.error('[DB] getClubStats error:', e);

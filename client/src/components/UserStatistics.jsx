@@ -74,7 +74,7 @@ export function UserStatistics({ language }) {
 
             if (error) throw error;
             setStats(data || {
-                games_played: 0,
+                confrontations_played: 0,
                 wins: 0,
                 losses: 0,
                 draws: 0,
@@ -96,8 +96,8 @@ export function UserStatistics({ language }) {
         );
     }
 
-    const winRate = stats.games_played > 0
-        ? Math.round((stats.wins / stats.games_played) * 100)
+    const winRate = stats.confrontations_played > 0
+        ? Math.round((stats.wins / stats.confrontations_played) * 100)
         : 0;
 
     const diff = stats.wins - stats.losses;
@@ -171,8 +171,8 @@ export function UserStatistics({ language }) {
                             <Activity size={64} />
                         </div>
                         <div className="relative z-10">
-                            <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">{t.gamesPlayed}</div>
-                            <div className="text-4xl font-black text-white">{stats.games_played}</div>
+                            <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">{t.confrontationsPlayed}</div>
+                            <div className="text-4xl font-black text-white">{stats.confrontations_played}</div>
                         </div>
                     </div>
 
