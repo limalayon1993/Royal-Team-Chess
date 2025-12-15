@@ -8,6 +8,8 @@ import { EditProfileModal } from './EditProfileModal';
 import { FriendRequestModal } from './FriendRequestModal';
 import TrophyList from './TrophyList';
 
+import { UserStatistics } from './UserStatistics';
+
 export function UserProfile({ language }) {
     const { userId } = useParams();
     const navigate = useNavigate();
@@ -198,12 +200,9 @@ export function UserProfile({ language }) {
 
                             <div className="flex gap-4 justify-center md:justify-start flex-wrap">
                                 {/* Stats Button (Always Visible) */}
-                                <button
-                                    onClick={() => navigate(`/profile/${userId}/stats`)}
-                                    className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold transition-all hover:scale-105 border border-slate-700 flex items-center gap-2"
-                                >
-                                    <Activity size={18} className="text-purple-400" /> {t.moreStats}
-                                </button>
+                                {
+                                    /* Stats Button Removed (Auto-Embedded) */
+                                }
                                 {/* Conditional Button Logic */}
                                 {isOwnProfile ? (
                                     <>
@@ -245,33 +244,9 @@ export function UserProfile({ language }) {
                     </div>
                 </div>
 
-                {/* Stats Grid - Simplified to 2 columns */}
-                <div className="grid md:grid-cols-2 gap-6 mb-8 max-w-2xl mx-auto">
-                    {/* Points Card */}
-                    <div className="bg-slate-800/40 p-6 rounded-2xl border border-slate-700/50 hover:border-blue-500/30 transition-all group">
-                        <div className="flex items-center gap-3 mb-2 text-slate-400 uppercase text-xs font-bold tracking-wider">
-                            <Activity size={16} className="text-blue-400" /> {t.seasonPoints}
-                        </div>
-                        <div className="text-4xl font-black text-white mb-1 group-hover:text-blue-300 transition-colors">
-                            {stats.points}
-                        </div>
-                        <div className="text-sm text-slate-500">
-                            {t.rankedPoints}
-                        </div>
-                    </div>
-
-                    {/* Elo Card */}
-                    <div className="bg-slate-800/40 p-6 rounded-2xl border border-slate-700/50 hover:border-yellow-500/30 transition-all group">
-                        <div className="flex items-center gap-3 mb-2 text-slate-400 uppercase text-xs font-bold tracking-wider">
-                            <Trophy size={16} className="text-yellow-400" /> ELO
-                        </div>
-                        <div className="text-4xl font-black text-white mb-1 group-hover:text-yellow-300 transition-colors">
-                            {stats.elo}
-                        </div>
-                        <div className="text-sm text-slate-500">
-                            {t.globalRating}
-                        </div>
-                    </div>
+                {/* Stats Grid - Embedded */}
+                <div className="mb-8">
+                    <UserStatistics language={language} embedded={true} />
                 </div>
 
                 {/* Trophies Section */}

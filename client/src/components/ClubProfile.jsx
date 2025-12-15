@@ -22,7 +22,7 @@ export function ClubProfile({ language, socket }) {
     const [isOwner, setIsOwner] = useState(false);
 
     // UI States
-    const [showStats, setShowStats] = useState(false);
+    // const [showStats, setShowStats] = useState(false); // Removed
 
     const [activeTab, setActiveTab] = useState('members');
     const [requests, setRequests] = useState([]);
@@ -399,12 +399,7 @@ export function ClubProfile({ language, socket }) {
                                 </button>
                             )}
 
-                            <button
-                                onClick={() => setShowStats(!showStats)}
-                                className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-all border border-slate-700 flex items-center gap-2 justify-center"
-                            >
-                                <BarChart2 size={18} /> {t.statistics}
-                            </button>
+                            {/* Stats Button Removed */}
                         </div>
                     </div>
                 </div>
@@ -414,12 +409,10 @@ export function ClubProfile({ language, socket }) {
                     <TrophyList entityId={club.id} type="CLUB" language={language} />
                 </div>
 
-                {/* Statistics Section (Toggleable) */}
-                {showStats && (
-                    <div className="mb-8 animate-fade-in-up">
-                        <ClubStatistics clubId={clubId} language={language} />
-                    </div>
-                )}
+                {/* Statistics Section (Always Visible) */}
+                <div className="mb-8 animate-fade-in-up">
+                    <ClubStatistics clubId={clubId} language={language} />
+                </div>
 
                 {/* Content Grid */}
                 <div className="grid lg:grid-cols-3 gap-8">

@@ -4,7 +4,7 @@ import { Activity, Trophy, ArrowLeft, History, Swords, Clock, Flag, PieChart, In
 import { supabase } from '../supabaseClient';
 import { translations } from '../translations';
 
-export function UserStatistics({ language }) {
+export function UserStatistics({ language, embedded = false }) {
     const { userId } = useParams();
     const navigate = useNavigate();
     const t = translations[language];
@@ -105,17 +105,19 @@ export function UserStatistics({ language }) {
     const diffSign = diff > 0 ? '+' : '';
 
     return (
-        <div className="min-h-screen bg-slate-900 text-white font-sans overflow-y-auto pb-20">
-            <div className="p-6">
-                <button
-                    onClick={() => navigate(`/profile/${userId}`)}
-                    className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors uppercase font-bold text-sm tracking-widest"
-                >
-                    <ArrowLeft size={16} /> {t.backToProfile}
-                </button>
-            </div>
+        <div className={embedded ? "w-full text-white font-sans" : "min-h-screen bg-slate-900 text-white font-sans overflow-y-auto pb-20"}>
+            {!embedded && (
+                <div className="p-6">
+                    <button
+                        onClick={() => navigate(`/profile/${userId}`)}
+                        className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors uppercase font-bold text-sm tracking-widest"
+                    >
+                        <ArrowLeft size={16} /> {t.backToProfile}
+                    </button>
+                </div>
+            )}
 
-            <div className="max-w-5xl mx-auto px-6 mt-4">
+            <div className={`max-w-5xl mx-auto px-6 ${embedded ? 'mt-0' : 'mt-4'}`}>
 
                 {/* Header & Filter */}
                 <div className="flex flex-col md:flex-row justify-between items-end md:items-center mb-8 gap-4 border-b border-slate-800 pb-8">
