@@ -1,0 +1,32 @@
+Run ID: 1765717034173
+=== STARTING TESTS ===
+Creating User: TEST_SCORING_UserA_1765717034173
+Creating User: TEST_SCORING_UserB_1765717034173
+Creating Club: TEST_SCORING_ClubA_1765717034173
+Creating Club: TEST_SCORING_ClubB_1765717034173
+
+--- Scenario 1: Individual Match (User A Wins) ---
+Calling handleBoardEnd for S1
+User A Points: 3 (Exp: 3)
+User B Points: 0 (Exp: 0)
+✅ Scenario 1 PASS
+
+--- Scenario 2: Club Match (User A [Club A] vs User B [Club B]) ---
+Calling handleBoardEnd for S2
+Club Member A Contrib: 3 (Exp: 3)
+Club A Wins: 1 (Exp: 1)
+Club A Points: 3 (Exp: 3)
+✅ Scenario 2 PASS
+
+--- Scenario 3: Draw ---
+Calling handleBoardEnd for S3
+User A Final: 7 (Exp: 7)
+User B Final: 1 (Exp: 1)
+✅ Scenario 3 PASS
+
+--- CLEANUP ---
+[ERROR] [DB] Failed to delete auth user for TEST_SCORING_UserA_1765717034173: AuthApiError: Database error deleting user
+[ERROR] [DB] Profile delete also failed: [object Object]
+[ERROR] [DB] Failed to delete auth user for TEST_SCORING_UserB_1765717034173: AuthApiError: Database error deleting user
+[ERROR] [DB] Profile delete also failed: [object Object]
+Cleanup done

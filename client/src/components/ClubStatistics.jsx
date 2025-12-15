@@ -134,7 +134,7 @@ export function ClubStatistics({ clubId, language = 'en' }) {
             </div>
 
             <div className="mt-4 pt-4 border-t border-slate-700/50 flex justify-between text-sm text-slate-500 font-medium">
-                <span>{t.gamesPlayed}: {stats.matches_played}</span>
+                <span>{t.matchesPlayed}: {stats.matches_played}</span>
                 <span>{t.winRate}: {stats.matches_played > 0 ? Math.round((stats.matches_won / stats.matches_played) * 100) : 0}%</span>
             </div>
         </div>

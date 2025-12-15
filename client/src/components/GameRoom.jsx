@@ -137,7 +137,7 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
     if (!gameState && isPlayer) {
         return (
             <div className="h-screen flex items-center justify-center bg-slate-900 text-white">
-                <div className="text-2xl font-bold animate-pulse">{t.initializing}</div>
+                <div className="text-2xl font-bold animate-pulse">{t.initializingMatch}</div>
             </div>
         );
     }
@@ -238,7 +238,7 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
                                 <div key={showVisualizer ? 'v-open' : 'v-closed'} className="h-full max-w-full aspect-square relative shadow-2xl">
                                     {boardResult ? (
                                         <div className="absolute inset-0 bg-slate-900/90 z-20 flex flex-col items-center justify-center text-center p-8 rounded border border-slate-700">
-                                            <h2 className="text-3xl font-bold mb-4">{t.gameOver}</h2>
+                                            <h2 className="text-3xl font-bold mb-4">{t.confrontationOver}</h2>
                                             <div className="text-xl mb-2">
                                                 {t.winner}: <span className={boardResult.winner === 'white' ? 'text-blue-400' : 'text-red-400'}>{boardResult.winner === 'white' ? t.white : t.black}</span>
                                             </div>

@@ -282,7 +282,7 @@ export function Lobby({ socket, roomId, roomName, settings, players, ready, isCr
                         className={`btn-primary px-8 py-3 text-xl flex items-center gap-2 ${!canStart ? 'opacity-50 cursor-not-allowed bg-slate-600' : 'bg-yellow-600 hover:bg-yellow-500'}`}
                         title={!isCreator ? t.hostOnly : t.allReady}
                     >
-                        <Play size={24} /> {isCreator ? t.startGame : t.waitingForHost}
+                        <Play size={24} /> {isCreator ? t.startMatch : t.waitingForHost}
                     </button>
                 </footer>
             </div>

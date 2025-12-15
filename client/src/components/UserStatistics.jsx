@@ -203,7 +203,7 @@ export function UserStatistics({ language }) {
                     {/* Game Outcomes Table */}
                     <div className="bg-slate-800/30 rounded-3xl p-8 border border-slate-700/50">
                         <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                            <Swords size={20} className="text-purple-400" /> {t.gameOutcomes}
+                            <Swords size={20} className="text-purple-400" /> {t.confrontationOutcomes}
                         </h3>
 
                         <div className="space-y-4">
