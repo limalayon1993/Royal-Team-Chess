@@ -710,6 +710,44 @@ async function updateClubStats(clubId, seasonId, statsIncrement) {
 }
 
 /**
+ * Initialize Club Stats for a new season (Safe Create)
+ */
+async function initializeClubStats(clubId, seasonId, division) {
+    if (!isConnected || !supabase) return;
+    try {
+        // Check if exists
+        const current = await getClubStats(clubId, seasonId);
+        // getClubStats returns a default object if not found with 0 IDs usually? 
+        // No, look at getClubStats implementation:
+        // if error or not found -> returns default obj.
+        // We need to check if it's a REAL DB row or a default obj.
+        // The default obj has no 'id' prop usually if we didn't mock it?
+        // Actually getClubStats returns: { club_id: clubId, season_id: seasonId ... } but NO 'id' (UUID).
+
+        // Let's rely on upsert with onConflict to be safe and simple.
+
+        const { error } = await supabase
+            .from('club_seasonal_stats')
+            .upsert({
+                club_id: clubId,
+                season_id: seasonId,
+                division: division,
+                season_points: 0,
+                matches_played: 0,
+                matches_won: 0,
+                matches_lost: 0,
+                matches_drawn: 0
+            }, { onConflict: 'club_id, season_id' });
+
+        if (error) console.error('[DB] initializeClubStats error:', error);
+        else console.log(`[DB] Initialized stats for Club ${clubId}, Season ${seasonId}, Div ${division}`);
+
+    } catch (e) {
+        console.error('[DB] initializeClubStats ex:', e);
+    }
+}
+
+/**
  * Increment Member Contribution (e.g. Season Points for internal ranking)
  */
 async function incrementMemberContribution(username, clubId, points) {
@@ -1015,11 +1053,37 @@ async function getTrophyByName(name) {
 }
 
 /**
- * Award Trophy to Club (Relational)
+ * Check if a specific trophy has already been awarded to a club for a season
+ */
+async function checkClubTrophy(clubId, trophyId, seasonId) {
+    if (!isConnected || !supabase) return false;
+    try {
+        const { data, error } = await supabase
+            .from('club_trophies')
+            .select('id')
+            .eq('club_id', clubId)
+            .eq('trophy_id', trophyId)
+            .eq('season_id', seasonId)
+            .maybeSingle();
+
+        return !!data;
+    } catch (e) {
+        return false;
+    }
+}
+
+/**
+ * Award Trophy to Club (Relational) - Idempotent
  */
 async function awardClubTrophy(clubId, trophyId, seasonId) {
     if (!isConnected || !supabase) return;
     try {
+        // Idempotency check
+        if (await checkClubTrophy(clubId, trophyId, seasonId)) {
+            console.log(`[DB] Trophy ${trophyId} already awarded to club ${clubId} for season ${seasonId}`);
+            return;
+        }
+
         const { error } = await supabase
             .from('club_trophies')
             .insert([{
@@ -1313,6 +1377,8 @@ module.exports = {
     getLeagueStandings,
     searchUsers,
     updateUserStatsByUsername,
-    incrementMemberContribution
+    incrementMemberContribution,
+    initializeClubStats,
+    checkClubTrophy
 };
 

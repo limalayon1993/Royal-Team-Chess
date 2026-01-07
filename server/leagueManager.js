@@ -16,8 +16,19 @@ class LeagueManager {
     async processSeasonEnd(seasonId) {
         console.log(`[LeagueManager] Processing Season End for ${seasonId}`);
 
-        // 1. Identify MAX active division
-        // We scan divisions 1 to 6.
+        // 1. Calculate NEXT Season ID
+        // Assuming seasonId is YYYY-MM
+        let [year, month] = seasonId.split('-').map(Number);
+        let nextMonth = month + 1;
+        let nextYear = year;
+        if (nextMonth > 12) {
+            nextMonth = 1;
+            nextYear++;
+        }
+        const nextSeasonId = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+        console.log(`[LeagueManager] Next Season: ${nextSeasonId}`);
+
+        // 2. Scan ALL Clubs Division by Division (1 to 6)
         const activeDivisions = [];
         for (let i = 1; i <= 6; i++) {
             const standings = await db.getLeagueStandings(seasonId, i);
@@ -26,171 +37,97 @@ class LeagueManager {
             }
         }
 
-        console.log(`[LeagueManager] Active Divisions found: ${activeDivisions.map(d => d.division).join(', ')}`);
-
-        if (activeDivisions.length === 0) {
-            console.log('[LeagueManager] No active divisions. Checking Pool for first generation?');
-            // If completely empty, we might need to seed Div 1 from Pool?
-            // Assuming this runs on existing system, we process Pool later.
-        }
-
-        // 2. Process Standard Internal P/R (Div 1 to MaxActive)
-        // We iterate from Div 1 downwards.
-        // Rules:
-        // Div 1: Bottom 3 Relegate -> Div 2 (if exists) or Pool.
-        // Div X (X>1): Top 3 Promote -> Div X-1. Bottom 3 Relegate -> Div X+1 (if exists) or Pool.
-
         const PROMOTION_COUNT = 3;
         const RELEGATION_COUNT = 3;
         const DIVISION_CAPACITY = 20;
-        const MAX_DIVISIONS = 6;
 
-        let clubsToRelegateToPool = []; // Clubs falling out of the bottom-most active division
+        // Track clubs processed to avoid duplicates (shouldn't happen with clean data)
+        const processedClubIds = new Set();
+        let clubsToRelegateFromBottom = [];
 
-        // A. Award Trophies & Identify Movers
         for (const divData of activeDivisions) {
             const { division, standings } = divData;
+            console.log(`[LeagueManager] Processing Div ${division} (${standings.length} clubs)`);
 
-            // Trophies (Top 3)
-            if (division === 1) { // Only Div 1 gets Gold/Silver/Bronze titles? User didn't specify, but implies Div 1 is top.
+            // Award Trophies (Top 3 Div 1)
+            if (division === 1) {
                 if (standings[0]) await this.awardTrophy(standings[0], seasonId, division, 'gold');
                 if (standings[1]) await this.awardTrophy(standings[1], seasonId, division, 'silver');
                 if (standings[2]) await this.awardTrophy(standings[2], seasonId, division, 'bronze');
-            } else {
-                // For lower divisions, maybe just "Winner" trophy? Skipping for now to keep simple.
             }
 
-            // Promotions (if Div > 1)
-            if (division > 1) {
-                const top3 = standings.slice(0, PROMOTION_COUNT);
-                for (const club of top3) {
-                    console.log(`[LeagueManager] Promoting Club ${club.club.name} (${club.club_id}) to Div ${division - 1}`);
-                    await db.updateClubDivision(club.club_id, division - 1);
+            // Determine Movement
+            // Top 3 -> Promote (Div - 1)
+            // Bottom 3 -> Relegate (Div + 1 or Pool)
+            // Rest -> Stay
+
+            // Indices for P/R
+            const promoteCutoff = PROMOTION_COUNT;
+            const relegateCutoff = standings.length - RELEGATION_COUNT; // Careful if length < 6
+
+            for (let i = 0; i < standings.length; i++) {
+                const club = standings[i];
+                let nextDivision = division; // Default: Stay
+
+                // Promotion Logic
+                if (division > 1 && i < promoteCutoff) {
+                    nextDivision = division - 1;
+                    console.log(`[P/R] Club ${club.club.name} promotes to Div ${nextDivision}`);
+                }
+                // Relegation Logic
+                else if (i >= relegateCutoff && standings.length >= (PROMOTION_COUNT + RELEGATION_COUNT)) {
+                    // Only relegate if we have enough teams to justify it? Or always?
+                    // Standard rules: Bottom 3 always drop if there is a place below.
+
+                    // Does next division exist?
+                    // We check if we are at the "Bottom Active".
+                    // For simply logic: we set them to division + 1.
+                    // If division + 1 is > Max (e.g. 7), they go to Pool (0).
+                    const tentativeNext = division + 1;
+                    if (tentativeNext > 6) {
+                        nextDivision = 0; // Pool
+                    } else {
+                        nextDivision = tentativeNext;
+                    }
+                    console.log(`[P/R] Club ${club.club.name} relegates to Div ${nextDivision}`);
+
+                    // Special handling for bottom-most active division logic handled in 'Expansion' block?
+                    // To keep it simple: Just always push down. The expansion logic handles "filling" empty divs.
+                    // But wait, if Div 2 is empty, we Relegate from Div 1 to create Div 2.
+                    // So simplistic assignment is fine.
+                }
+
+                // APPLY UPDATES
+                // 1. Update Persistent Division
+                await db.updateClubDivision(club.club_id, nextDivision);
+
+                // 2. Initialize Stats for NEXT Season
+                await db.initializeClubStats(club.club_id, nextSeasonId, nextDivision);
+
+                processedClubIds.add(club.club_id);
+            }
+        }
+
+        // 3. Handle Pool (Div 0)
+        // We need to check if any Pool clubs fill empty spots or if we need to expand.
+        // For MVP: Just initialize Pool clubs for next season so they don't disappear.
+        // If we want actual promotion from Pool, we need to pick Top N pool clubs and move them to Lowest Active + 1?
+
+        // Let's just initialize ALL remaining active clubs (Pool) that weren't processed.
+        // We can scan 'clubs' table for anyone we missed?
+        // Or query Div 0 standings.
+        const poolStandings = await db.getLeagueStandings(seasonId, 0);
+        if (poolStandings) {
+            for (const club of poolStandings) {
+                if (!processedClubIds.has(club.club_id)) {
+                    // Ensure they stay in Pool (0)
+                    await db.initializeClubStats(club.club_id, nextSeasonId, 0);
+                    processedClubIds.add(club.club_id);
                 }
             }
-
-            // Relegations
-            // If next division exists, they go there. If not (this is the bottom active), they go to Pool TEMPORARILY
-            // pending expansion check.
-            const bottom3 = standings.slice(-RELEGATION_COUNT);
-            const nextDivIndex = activeDivisions.findIndex(d => d.division === division + 1);
-
-            if (nextDivIndex !== -1) {
-                // Next division exists interactively
-                for (const club of bottom3) {
-                    console.log(`[LeagueManager] Relegating Club ${club.club.name} (${club.club_id}) to Div ${division + 1}`);
-                    await db.updateClubDivision(club.club_id, division + 1);
-                }
-            } else {
-                // This is the formatted "Bottom Active Division".
-                // These clubs fall into the abyss (Pool) OR into a new division if created.
-                // We track them.
-                clubsToRelegateToPool = bottom3;
-            }
         }
 
-        // 3. Pool & Expansion Logic
-        // The "Bottom 3" of the lowest active division have effectively been "kicked out".
-        // Now we look at the Pool (Div 0).
-        // Plus our freshly relegated friends (who have Prio 1).
-
-        const poolClubsRaw = await db.getLeagueStandings(seasonId, 0); // Get pool based on PAST season stats?
-        // Actually, db.getLeagueStandings queries 'club_seasonal_stats'.
-        // New clubs might not have stats for 'this' closing season?
-        // Wait, 'createClub' initializes stats for CURRENT season.
-        // So yes, they should be in the stats table for 'seasonId'.
-
-        // We need a list of ALL candidate clubs for the next tier (or filling holes).
-        // Since we are strictly doing "Create New Division" logic:
-        // We only care about creating Div N+1 if we have enough clubs.
-
-        const lastActiveDiv = activeDivisions.length > 0 ? activeDivisions[activeDivisions.length - 1].division : 0;
-        const nextTargetDiv = lastActiveDiv + 1;
-
-        if (nextTargetDiv > MAX_DIVISIONS) {
-            console.log('[LeagueManager] Max divisions reached. Relegating bottom to Pool.');
-            for (const club of clubsToRelegateToPool) {
-                await db.updateClubDivision(club.club_id, 0);
-            }
-            return;
-        }
-
-        // Candidates for New Division (or filling the void):
-        // 1. Relegated from Last Div (Priority 1)
-        // 2. Pool Clubs (Priority 2)
-
-        const relegatedIds = new Set(clubsToRelegateToPool.map(c => c.club_id));
-        const poolClubs = poolClubsRaw || [];
-
-        // Total available for the new frontier
-        const totalCandidates = clubsToRelegateToPool.length + poolClubs.length;
-
-        console.log(`[LeagueManager] Expansion Check: Target Div ${nextTargetDiv}. Candidates: ${totalCandidates} (Relegated: ${clubsToRelegateToPool.length}, Pool: ${poolClubs.length})`);
-
-        if (totalCandidates >= DIVISION_CAPACITY) {
-            console.log(`[LeagueManager] Enough clubs to form Division ${nextTargetDiv}. Executing Expansion.`);
-
-            // 1. Move Relegated clubs to New Div (instead of Pool)
-            for (const club of clubsToRelegateToPool) {
-                console.log(`[LeagueManager] Placing Relegated Club ${club.club.name} into NEW Div ${nextTargetDiv}`);
-                await db.updateClubDivision(club.club_id, nextTargetDiv);
-            }
-
-            // 2. Fill remainder from Pool (Top Elo/Points)
-            // Pool sort: Points DESC, then Elo DESC (if available in view? mock logic for now)
-            // assuming poolClubs is sorted by points by getLeagueStandings.
-            const slotsRemaining = DIVISION_CAPACITY - clubsToRelegateToPool.length;
-            const promotedFromPool = poolClubs.slice(0, slotsRemaining);
-
-            for (const club of promotedFromPool) {
-                console.log(`[LeagueManager] Promoting Pool Club ${club.club.name} into NEW Div ${nextTargetDiv}`);
-                await db.updateClubDivision(club.club_id, nextTargetDiv);
-            }
-
-            // Remaining pool stays in pool (Div 0)
-        } else {
-            console.log(`[LeagueManager] Not enough clubs (${totalCandidates}/${DIVISION_CAPACITY}) to form Division ${nextTargetDiv}.`);
-            // Relegated clubs go to Pool
-            for (const club of clubsToRelegateToPool) {
-                console.log(`[LeagueManager] Relegating Club ${club.club.name} to Pool (Div 0)`);
-                await db.updateClubDivision(club.club_id, 0);
-            }
-
-            // Pool clubs stay in Pool.
-            // But wait! "Top 3 of Pool ascend to that division" (if it existed).
-            // Logic says: "Bottom 3 of Div 1 descend... Top 3 of Pool ascend".
-            // If Division 2 doesn't exist, we just did the expansion check above.
-            // If expansion failed, the Bottom 3 joined the pool.
-            // BUT, if we have a "Vacancy" in the lowest division (moved up?), we might need to fill it?
-            // Actually, standard P/R handles the flow BETWEEN divisions.
-            // The lowest division "exchanges" with the pool?
-            // "If we have only 1 division... Bottom 3 go to pool, Top 3 from pool ascend."
-
-            // CORRECT LOGIC REVISION for "No Expansion" case:
-            // If LastDiv is NOT full/expanding, it acts as the interface to Pool.
-            // Swap logic:
-            // We already identified `clubsToRelegateToPool` as the bottom 3.
-            // We need to identifying the Top 3 FROM POOL to replace them in `lastActiveDiv`.
-
-            // Wait, createClub doesn't auto-fill divisions.
-            // So `lastActiveDiv` might have openings?
-            // Assuming standard 20.
-
-            // "Swapping": The 3 we just "relegated" (intending for next tier) actually go to Pool.
-            // AND the Top 3 of Pool take their place in `lastActiveDiv`.
-
-            // We effectively just moved the bottom 3 to Div 0.
-            // Now move Top 3 Div 0 to `lastActiveDiv`.
-
-            const bestPoolClubs = poolClubs.slice(0, RELEGATION_COUNT);
-            for (const club of bestPoolClubs) {
-                // Check if they are already in the list to be relegated? (Edge case if pool is tiny/same)
-                // Unlikely given IDs.
-                console.log(`[LeagueManager] Promotion from Pool! Club ${club.club.name} to Div ${lastActiveDiv}`);
-                await db.updateClubDivision(club.club_id, lastActiveDiv);
-            }
-        }
-
+        console.log(`[LeagueManager] Processed ${processedClubIds.size} clubs for transition to ${nextSeasonId}`);
         console.log(`[LeagueManager] Season ${seasonId} processing complete.`);
     }
 

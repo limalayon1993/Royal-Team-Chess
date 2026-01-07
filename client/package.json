@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@builder.io/react": "^9.1.0",
+    "@builder.io/sdk-react": "^5.1.0",
     "@supabase/supabase-js": "^2.86.0",
     "chess.js": "^1.4.0",
     "lucide-react": "^0.555.0",
