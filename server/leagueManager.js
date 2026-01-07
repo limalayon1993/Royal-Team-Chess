@@ -41,70 +41,115 @@ class LeagueManager {
         const moves = []; // Array<{ clubId, targetDiv }>
 
         // 3. Logic: Waterfall (1 -> 6)
-        // We determine moves based on the state at the END of the season.
+        // Corrected for Net Flow: Virtual = Start - Moved_Up + Relegated_In + Promoted_In
+
+        // We need to track who moved OUT in the previous step (from Div-1 calculation)
+        // And who moved IN (Relegated from Div-1)
+
+        let sentUpCount = 0; // Number of clubs from 'current div' that promoted to 'div-1' (Calculated in PREVIOUS loop, confusing?)
+        // Actually, we calculate promotions FROM 'feeder' (div+1) TO 'current' (div).
+        // So for Div 1: Feeder is Div 2. We verify Promos D2->D1.
+
+        // Loop strategy:
+        // We iterate 1 to 6.
+        // At Div X:
+        // 1. We know 'Relegated_In' from Div X-1 (calculated in previous iteration).
+        // 2. We calculate 'Promoted_In' from Div X+1 (Feeder).
+        // 3. We determine 'Promoted_Out' from Div X to Div X-1? 
+        //    WAIT. Div X promotions to Div X-1 were calculated in the Div X-1 loop!
+        //    So we ALREADY know how many left Div X to go up!
+
+        // State tracking object
+        const changes = {
+            // division: { promotedOut: N, relegatedIn: N }
+        };
+        for (let d = 1; d <= 6; d++) changes[d] = { promotedOut: 0, relegatedIn: 0 };
+
+        // We need to run this sequentially and update 'changes' for the NEXT loop (or previous/related).
+
+        // Refined Loop:
+        // Div 1 Loop:
+        //   - Promoted_In (from D2).
+        //   - Relegated_In (from D0? None).
+        //   - Promoted_Out (to D0? None).
+        //   -> Calculate Overflow (Relegated_Out -> D2).
+        //   -> Update D2's "Relegated_In".
+        //   -> Also, we just calculated D2->D1 promotions. So update D2's "Promoted_Out".
+
         for (let div = 1; div <= 6; div++) {
             const currentClubs = allStandings[div];
-            const lowerDiv = div === 6 ? 0 : div + 1; // Pool is 0, but acts as feeder for 6
-            // Wait, if div=6, lower is 0 (Pool).
-            // Logic: Feeder is ALWAYS the level below.
-            // But Div 7 doesn't exist, so Div 6 feeds from Pool logic?
-            // Yes, let's treat Pool as "Below 6".
 
-            // Correction: Pool is Div 0 in DB.
-            // Let's explicitly map feeders:
-            // 1 <- 2
-            // 2 <- 3
-            // ...
-            // 6 <- 0 (Pool) ? Or 6 <- 7 (Empty) and Pool is separate?
-            // User implies Pool feeds the system.
-            // Let's assume Pool feeds Div 6.
-
+            // Feeder (Div Below)
+            const feederDivId = div === 6 ? 0 : div + 1;
             const feederClubs = (div === 6) ? allStandings[0] : allStandings[div + 1];
 
-            console.log(`[LeagueManager] Logic Div ${div}: Current ${currentClubs.length}, Feeder (Div ${div === 6 ? 0 : div + 1}) ${feederClubs.length}`);
+            console.log(`[LeagueManager] Logic Div ${div}. Start Size: ${currentClubs.length}`);
 
-            // 1. Identify Promoting Clubs (Top 3 from Feeder)
+            // 1. INCOMING (UP): Calculate Promotions from Below (Feeder -> Div)
+            // Note: This logic belongs to 'div'. We decide who we accept.
             const numPromoting = Math.min(feederClubs.length, PROMOTION_COUNT);
             const promoting = feederClubs.slice(0, numPromoting);
 
-            // 2. Identify Relegating Clubs (Adaptive)
-            // Goal: Target 20.
-            // Virtual Count = Current + IncomingPromotions.
-            // If > 20, we must shed the excess.
-            const virtualCount = currentClubs.length + numPromoting;
+            // Record these as "Promoted Out" for the Feeder layer (for next iteration)
+            if (div < 6) {
+                changes[div + 1].promotedOut = numPromoting;
+            }
+
+            // 2. INCOMING (DOWN): Already recorded in 'changes[div].relegatedIn' from previous loop
+            const relegatedIn = changes[div].relegatedIn;
+
+            // 3. OUTGOING (UP): Already recorded in 'changes[div].promotedOut' from previous loop (when we processed div-1)
+            const promotedOut = changes[div].promotedOut;
+
+            // 4. CALCULATE VIRTUAL COUNT
+            // Virtual = Start - Up + Down(In) + Up(In)
+            const virtualCount = currentClubs.length - promotedOut + relegatedIn + numPromoting;
+
             const excess = virtualCount - DIVISION_CAPACITY;
+
+            console.log(`   Flow: -${promotedOut} (Up) +${relegatedIn} (DownIn) +${numPromoting} (UpIn) = Net ${virtualCount}`);
 
             let relegating = [];
             if (excess > 0) {
-                // Relegate the bottom 'excess' clubs
-                // Note: currentClubs is sorted Descending (Best to Worst).
-                // So bottom are at the end.
+                // We relegate the bottom 'excess' clubs
+                // We must exclude clubs that already promoted out!
+                // 'currentClubs' contains everyone.
+                // Promoting out are Top N. Relegating are Bottom N. They don't overlap usually.
+
                 const numRelegating = excess;
-                const startIndex = currentClubs.length - numRelegating;
+
+                // Safety check: Don't relegate more than (Start - PromotedOut)
+                // If we try to relegate everyone remaining, that's fine.
+
+                const availableToRelegate = currentClubs.length - promotedOut; // These are the bottom part
+                const actualRelegating = Math.min(numRelegating, availableToRelegate);
+
+                const startIndex = currentClubs.length - actualRelegating;
                 if (startIndex >= 0) {
                     relegating = currentClubs.slice(startIndex);
                 }
+
+                // Update 'relegatedIn' for the division below
+                if (div < 6) {
+                    changes[div + 1].relegatedIn = relegating.length;
+                }
             }
 
-            console.log(`   -> Promoting ${promoting.length} from below.`);
-            console.log(`   -> Relegating ${relegating.length} to below (Excess: ${excess}).`);
+            console.log(`   -> Relegating ${relegating.length} to below.`);
 
-            // 3. Queue Moves
-
+            // QUEUE MOVES
             // Promote: Feeder -> Div
             for (const c of promoting) {
-                // Ensure we haven't already moved this club (Unlikely in waterfall if distinct sets)
                 moves.push({ clubId: c.club_id, targetDiv: div, name: c.club.name, type: 'PROMOTION' });
             }
 
             // Relegate: Current -> Lower
-            // If Div 6 relegates, they go to Pool (0)
             const targetForRelegation = (div === 6) ? 0 : div + 1;
             for (const c of relegating) {
                 moves.push({ clubId: c.club_id, targetDiv: targetForRelegation, name: c.club.name, type: 'RELEGATION' });
             }
 
-            // Award Trophies (Div 1 only, from snapshot)
+            // Award Trophies
             if (div === 1) {
                 if (currentClubs[0]) await this.awardTrophy(currentClubs[0], seasonId, 1, 'gold');
                 if (currentClubs[1]) await this.awardTrophy(currentClubs[1], seasonId, 1, 'silver');
