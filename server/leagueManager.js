@@ -17,7 +17,6 @@ class LeagueManager {
         console.log(`[LeagueManager] Processing Season End for ${seasonId}`);
 
         // 1. Calculate NEXT Season ID
-        // Assuming seasonId is YYYY-MM
         let [year, month] = seasonId.split('-').map(Number);
         let nextMonth = month + 1;
         let nextYear = year;
@@ -28,106 +27,117 @@ class LeagueManager {
         const nextSeasonId = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
         console.log(`[LeagueManager] Next Season: ${nextSeasonId}`);
 
-        // 2. Scan ALL Clubs Division by Division (1 to 6)
-        const activeDivisions = [];
-        for (let i = 1; i <= 6; i++) {
-            const standings = await db.getLeagueStandings(seasonId, i);
-            if (standings && standings.length > 0) {
-                activeDivisions.push({ division: i, standings });
-            }
+        // 2. Fetch ALL Standings first (Snapshot)
+        // We fetch Div 0 to 6.
+        const allStandings = {}; // Map<Division, Array<ClubStats>>
+        for (let i = 0; i <= 6; i++) {
+            const s = await db.getLeagueStandings(seasonId, i);
+            allStandings[i] = s || [];
         }
 
         const PROMOTION_COUNT = 3;
-        const RELEGATION_COUNT = 3;
         const DIVISION_CAPACITY = 20;
 
-        // Track clubs processed to avoid duplicates (shouldn't happen with clean data)
-        const processedClubIds = new Set();
-        let clubsToRelegateFromBottom = [];
+        const moves = []; // Array<{ clubId, targetDiv }>
 
-        for (const divData of activeDivisions) {
-            const { division, standings } = divData;
-            console.log(`[LeagueManager] Processing Div ${division} (${standings.length} clubs)`);
+        // 3. Logic: Waterfall (1 -> 6)
+        // We determine moves based on the state at the END of the season.
+        for (let div = 1; div <= 6; div++) {
+            const currentClubs = allStandings[div];
+            const lowerDiv = div === 6 ? 0 : div + 1; // Pool is 0, but acts as feeder for 6
+            // Wait, if div=6, lower is 0 (Pool).
+            // Logic: Feeder is ALWAYS the level below.
+            // But Div 7 doesn't exist, so Div 6 feeds from Pool logic?
+            // Yes, let's treat Pool as "Below 6".
 
-            // Award Trophies (Top 3 Div 1)
-            if (division === 1) {
-                if (standings[0]) await this.awardTrophy(standings[0], seasonId, division, 'gold');
-                if (standings[1]) await this.awardTrophy(standings[1], seasonId, division, 'silver');
-                if (standings[2]) await this.awardTrophy(standings[2], seasonId, division, 'bronze');
+            // Correction: Pool is Div 0 in DB.
+            // Let's explicitly map feeders:
+            // 1 <- 2
+            // 2 <- 3
+            // ...
+            // 6 <- 0 (Pool) ? Or 6 <- 7 (Empty) and Pool is separate?
+            // User implies Pool feeds the system.
+            // Let's assume Pool feeds Div 6.
+
+            const feederClubs = (div === 6) ? allStandings[0] : allStandings[div + 1];
+
+            console.log(`[LeagueManager] Logic Div ${div}: Current ${currentClubs.length}, Feeder (Div ${div === 6 ? 0 : div + 1}) ${feederClubs.length}`);
+
+            // 1. Identify Promoting Clubs (Top 3 from Feeder)
+            const numPromoting = Math.min(feederClubs.length, PROMOTION_COUNT);
+            const promoting = feederClubs.slice(0, numPromoting);
+
+            // 2. Identify Relegating Clubs (Adaptive)
+            // Goal: Target 20.
+            // Virtual Count = Current + IncomingPromotions.
+            // If > 20, we must shed the excess.
+            const virtualCount = currentClubs.length + numPromoting;
+            const excess = virtualCount - DIVISION_CAPACITY;
+
+            let relegating = [];
+            if (excess > 0) {
+                // Relegate the bottom 'excess' clubs
+                // Note: currentClubs is sorted Descending (Best to Worst).
+                // So bottom are at the end.
+                const numRelegating = excess;
+                const startIndex = currentClubs.length - numRelegating;
+                if (startIndex >= 0) {
+                    relegating = currentClubs.slice(startIndex);
+                }
             }
 
-            // Determine Movement
-            // Top 3 -> Promote (Div - 1)
-            // Bottom 3 -> Relegate (Div + 1 or Pool)
-            // Rest -> Stay
+            console.log(`   -> Promoting ${promoting.length} from below.`);
+            console.log(`   -> Relegating ${relegating.length} to below (Excess: ${excess}).`);
 
-            // Indices for P/R
-            const promoteCutoff = PROMOTION_COUNT;
-            const relegateCutoff = standings.length - RELEGATION_COUNT; // Careful if length < 6
+            // 3. Queue Moves
 
-            for (let i = 0; i < standings.length; i++) {
-                const club = standings[i];
-                let nextDivision = division; // Default: Stay
-
-                // Promotion Logic
-                if (division > 1 && i < promoteCutoff) {
-                    nextDivision = division - 1;
-                    console.log(`[P/R] Club ${club.club.name} promotes to Div ${nextDivision}`);
-                }
-                // Relegation Logic
-                else if (i >= relegateCutoff && standings.length >= (PROMOTION_COUNT + RELEGATION_COUNT)) {
-                    // Only relegate if we have enough teams to justify it? Or always?
-                    // Standard rules: Bottom 3 always drop if there is a place below.
-
-                    // Does next division exist?
-                    // We check if we are at the "Bottom Active".
-                    // For simply logic: we set them to division + 1.
-                    // If division + 1 is > Max (e.g. 7), they go to Pool (0).
-                    const tentativeNext = division + 1;
-                    if (tentativeNext > 6) {
-                        nextDivision = 0; // Pool
-                    } else {
-                        nextDivision = tentativeNext;
-                    }
-                    console.log(`[P/R] Club ${club.club.name} relegates to Div ${nextDivision}`);
-
-                    // Special handling for bottom-most active division logic handled in 'Expansion' block?
-                    // To keep it simple: Just always push down. The expansion logic handles "filling" empty divs.
-                    // But wait, if Div 2 is empty, we Relegate from Div 1 to create Div 2.
-                    // So simplistic assignment is fine.
-                }
-
-                // APPLY UPDATES
-                // 1. Update Persistent Division
-                await db.updateClubDivision(club.club_id, nextDivision);
-
-                // 2. Initialize Stats for NEXT Season
-                await db.initializeClubStats(club.club_id, nextSeasonId, nextDivision);
-
-                processedClubIds.add(club.club_id);
+            // Promote: Feeder -> Div
+            for (const c of promoting) {
+                // Ensure we haven't already moved this club (Unlikely in waterfall if distinct sets)
+                moves.push({ clubId: c.club_id, targetDiv: div, name: c.club.name, type: 'PROMOTION' });
             }
-        }
 
-        // 3. Handle Pool (Div 0)
-        // We need to check if any Pool clubs fill empty spots or if we need to expand.
-        // For MVP: Just initialize Pool clubs for next season so they don't disappear.
-        // If we want actual promotion from Pool, we need to pick Top N pool clubs and move them to Lowest Active + 1?
+            // Relegate: Current -> Lower
+            // If Div 6 relegates, they go to Pool (0)
+            const targetForRelegation = (div === 6) ? 0 : div + 1;
+            for (const c of relegating) {
+                moves.push({ clubId: c.club_id, targetDiv: targetForRelegation, name: c.club.name, type: 'RELEGATION' });
+            }
 
-        // Let's just initialize ALL remaining active clubs (Pool) that weren't processed.
-        // We can scan 'clubs' table for anyone we missed?
-        // Or query Div 0 standings.
-        const poolStandings = await db.getLeagueStandings(seasonId, 0);
-        if (poolStandings) {
-            for (const club of poolStandings) {
-                if (!processedClubIds.has(club.club_id)) {
-                    // Ensure they stay in Pool (0)
-                    await db.initializeClubStats(club.club_id, nextSeasonId, 0);
-                    processedClubIds.add(club.club_id);
-                }
+            // Award Trophies (Div 1 only, from snapshot)
+            if (div === 1) {
+                if (currentClubs[0]) await this.awardTrophy(currentClubs[0], seasonId, 1, 'gold');
+                if (currentClubs[1]) await this.awardTrophy(currentClubs[1], seasonId, 1, 'silver');
+                if (currentClubs[2]) await this.awardTrophy(currentClubs[2], seasonId, 1, 'bronze');
             }
         }
 
-        console.log(`[LeagueManager] Processed ${processedClubIds.size} clubs for transition to ${nextSeasonId}`);
+        // 4. Apply Moves
+        const processedIds = new Set();
+
+        for (const m of moves) {
+            console.log(`[LeagueManager] Execute: ${m.type} ${m.name} -> Div ${m.targetDiv}`);
+            await db.updateClubDivision(m.clubId, m.targetDiv);
+            await db.initializeClubStats(m.clubId, nextSeasonId, m.targetDiv);
+            processedIds.add(m.clubId);
+        }
+
+        // 5. Initialize STAYING Clubs
+        // Anyone not in 'moves' stays in their current division (or pool).
+        for (let div = 0; div <= 6; div++) {
+            const clubs = allStandings[div];
+            for (const c of clubs) {
+                if (!processedIds.has(c.club_id)) {
+                    // Stays
+                    const targetDiv = c.division; // Should match div, unless inconsistent DB
+                    // Note: If C was in Div 2, and wasn't promoted or relegated, it stays in Div 2.
+                    // Important: Pool clubs (Div 0) that didn't promote to Div 6 stay in Pool.
+
+                    await db.initializeClubStats(c.club_id, nextSeasonId, targetDiv);
+                }
+            }
+        }
+
         console.log(`[LeagueManager] Season ${seasonId} processing complete.`);
     }
 
