@@ -14,8 +14,21 @@ app.use(express.json());
 
 const db = require('./db');
 
+// --- SECURITY MIDDLEWARE ---
+const verifyAdmin = (req, res, next) => {
+    if (!process.env.ADMIN_SECRET) {
+        console.warn('[Security] ADMIN_SECRET not set in Environment! Admin endpoints disabled.');
+        return res.status(503).json({ error: 'Service Unavailable: Admin Configuration Missing' });
+    }
+    if (req.headers['x-admin-secret'] !== process.env.ADMIN_SECRET) {
+        console.warn(`[Security] Unauthorized Admin Access Attempt from ${req.ip}`);
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+    next();
+};
+
 // Endpoint to fix Elo for new users (Bypassing RLS)
-app.post('/api/fix-elo', async (req, res) => {
+app.post('/api/fix-elo', verifyAdmin, async (req, res) => {
     const { username } = req.body;
     console.log('[API] Received request to fix Elo for:', username);
     if (!username) return res.status(400).json({ error: 'Missing username' });
@@ -31,7 +44,7 @@ app.post('/api/fix-elo', async (req, res) => {
 });
 
 // Endpoint to DELETE USER (Admin - Cascading)
-app.post('/api/admin/delete-user', async (req, res) => {
+app.post('/api/admin/delete-user', verifyAdmin, async (req, res) => {
     const { username } = req.body;
     console.log('[API] Received ADMIN request to DELETE user:', username);
     if (!username) return res.status(400).json({ error: 'Missing username' });
@@ -52,7 +65,7 @@ app.post('/api/admin/delete-user', async (req, res) => {
 });
 
 // Endpoint to CLEANUP ZOMBIE USER (Auth without Profile)
-app.post('/api/admin/cleanup-zombie', async (req, res) => {
+app.post('/api/admin/cleanup-zombie', verifyAdmin, async (req, res) => {
     const { userId } = req.body;
     console.log('[API] Received request to CLEANUP ZOMBIE user:', userId);
 
@@ -73,7 +86,7 @@ app.post('/api/admin/cleanup-zombie', async (req, res) => {
 });
 
 // Endpoint to FORCE DELETE BY EMAIL (Rescue)
-app.post('/api/admin/force-delete-email', async (req, res) => {
+app.post('/api/admin/force-delete-email', verifyAdmin, async (req, res) => {
     const { email } = req.body;
     console.log('[API] Received request to FORCE DELETE email:', email);
 
@@ -93,7 +106,7 @@ app.post('/api/admin/force-delete-email', async (req, res) => {
 });
 
 // Endpoint to FORCE VERIFY BY EMAIL (Rescue)
-app.post('/api/admin/force-verify-email', async (req, res) => {
+app.post('/api/admin/force-verify-email', verifyAdmin, async (req, res) => {
     const { email } = req.body;
     console.log('[API] Received request to FORCE VERIFY email:', email);
 
@@ -273,7 +286,7 @@ const partyManager = new PartyManager(io, gameManager);
 gameManager.partyManager = partyManager; // Fix circular dependency
 gameManager.setPartyManager(partyManager);
 
-const SERVER_VERSION = 'v_DEBUG_Matchmaking_' + Date.now();
+const SERVER_VERSION = 'v1.0.0_Launch';
 
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
@@ -376,6 +389,6 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-    console.log('--- SERVER RESTARTED: v_FIXED_DELETION_' + Date.now() + ' ---');
-    console.log('--- ADMIN ENDPOINTS ACTIVE (with Auth Delete) ---');
+    console.log('--- SERVER LAUNCHED: v1.0.0_Launch ---');
+    console.log('NOTE: Admin endpoints require ADMIN_SECRET');
 });

@@ -893,6 +893,24 @@ async function createJoinRequest(clubId, userId, message) {
 
 // --- MEMBERSHIP MANAGEMENT (Add, Remove, etc) ---
 
+/**
+ * Add Member to Club (Direct - Admin/System usage)
+ */
+async function addClubMember(clubId, userId, role = 'member') {
+    if (!isConnected || !supabase) return { error: 'DB Disconnected' };
+    try {
+        const { error } = await supabase
+            .from('club_members')
+            .insert([{ club_id: clubId, user_id: userId, role }]);
+
+        if (error) return { error: error.message };
+        return { success: true };
+    } catch (e) {
+        return { error: e.message };
+    }
+}
+
+
 // --- RETENTION POLICY ---
 
 async function deleteOldClubStats(cutoffSeasonId) {
@@ -1197,7 +1215,8 @@ async function getLeagueStandings(seasonId, division) {
             .eq('season_id', seasonId)
             // .eq('division', division) // Temporarily disabled if division column null logic strictly needed, but logic implies we filter by division
             .order('season_points', { ascending: false })
-            .order('matches_won', { ascending: false });
+            .order('matches_won', { ascending: false })
+            .order('club_id', { ascending: true }); // Deterministic Sort
 
         if (error) throw error;
 
@@ -1379,6 +1398,7 @@ module.exports = {
     updateUserStatsByUsername,
     incrementMemberContribution,
     initializeClubStats,
-    checkClubTrophy
+    checkClubTrophy,
+    addClubMember
 };
 
