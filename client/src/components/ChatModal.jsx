@@ -93,6 +93,12 @@ export function ChatModal({ isOpen, onClose, language, currentUser, initialChatU
                     .eq('sender_id', activeChat)
                     .eq('receiver_id', currentUser.id)
                     .eq('is_read', false);
+
+                // FIX: Notify listeners (LandingPage badge)
+                window.dispatchEvent(new Event('messages-read'));
+
+                // FIX: Optimistically clear unread count for this chat in the sidebar list
+                setChats(prev => prev.map(c => c.other_user_id === activeChat ? { ...c, unread: 0 } : c));
             }
             setLoading(false);
         };
