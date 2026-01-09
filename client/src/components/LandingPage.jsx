@@ -1426,7 +1426,7 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                     <Crown size={20} />
                     <span className="font-bold">Royal Team Chess</span>
                 </div>
-                <p>&copy; 2025 Royal Team Chess. All rights reserved.</p>
+                <p>&copy; 2026 Royal Team Chess. All rights reserved.</p>
             </footer>
             {/* Full Screen Searching Overlay */}
             {searchStatus === 'searching' && (
