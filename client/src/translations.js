@@ -53,7 +53,7 @@ export const translations = {
         teamClock: "Shared Team Clock",
         teamClockDesc: "Time is your most valuable resource. You and your teammate share a single timer. Move fast to save time for your partner's critical moments.",
         communication: "Strategic Comms",
-        commDesc: "Communication is key, but spoilers are forbidden. Discuss strategy and timing, but never reveal specific moves. Trust your teammate to execute the plan.",
+        commDesc: "Communication is key. Use visualizers to understand your teammates' boards, develop a joint strategy, and defeat your rivals as a team.",
         visualizers: "Data Visualizers",
         visualizerDesc: "You can't see your partner's board, but you can see their war. Use Heatmaps, Thermometers, and Burn Rates to understand the flow of battle.",
 
@@ -437,7 +437,7 @@ export const translations = {
         teamClock: "Reloj de Equipo Compartido",
         teamClockDesc: "El tiempo es vuestro recurso más valioso. Tú y tu compañero compartís un único reloj. Mueve rápido para ahorrar tiempo para los momentos críticos de tu compañero.",
         communication: "Comunicaciones Estratégicas",
-        commDesc: "La comunicación es clave, pero los spoilers están prohibidos. Discutid estrategia y tiempos, pero nunca reveléis jugadas específicas. Confía en tu compañero para ejecutar el plan.",
+        commDesc: "La comunicación es clave. Usa los visualizadores para entender las partidas de tus compañeros, desarrollar una estrategia conjunta y derrotar a vuestros rivales como equipo.",
         visualizers: "Visualizadores de Datos",
         visualizerDesc: "No puedes ver el tablero de tu compañero, pero puedes ver su guerra. Usa Mapas de Calor, Termómetros y Tasas de Quemado para entender el flujo de la batalla.",
 
