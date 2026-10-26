@@ -6,19 +6,7 @@ export function useVoiceRecorder(socket, roomId, active) {
     const streamRef = useRef(null);
     const intervalRef = useRef(null);
 
-    useEffect(() => {
-        if (active) {
-            startRecording();
-        } else {
-            stopRecording();
-        }
-
-        return () => {
-            stopRecording();
-        };
-    }, [active, roomId, socket]);
-
-    const startRecording = async () => {
+    async function startRecording() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             streamRef.current = stream;
@@ -65,9 +53,9 @@ export function useVoiceRecorder(socket, roomId, active) {
             console.error('Error accessing microphone:', err);
             setIsRecording(false);
         }
-    };
+    }
 
-    const stopRecording = () => {
+    function stopRecording() {
         setIsRecording(false);
 
         if (intervalRef.current) {
@@ -83,7 +71,19 @@ export function useVoiceRecorder(socket, roomId, active) {
             streamRef.current.getTracks().forEach(track => track.stop());
             streamRef.current = null;
         }
-    };
+    }
+
+    useEffect(() => {
+        if (active) {
+            startRecording();
+        } else {
+            stopRecording();
+        }
+
+        return () => {
+            stopRecording();
+        };
+    }, [active, roomId, socket]);
 
     return isRecording;
 }

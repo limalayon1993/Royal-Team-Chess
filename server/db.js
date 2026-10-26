@@ -1,3 +1,9 @@
+const path = require('path');
+// 1. Cargar el .env propio de la carpeta server
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+// 2. Cargar el .env de la raíz como fallback / variables globales
+require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
+// 3. Fallback predeterminado por si se pasa por variable de entorno externa
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 

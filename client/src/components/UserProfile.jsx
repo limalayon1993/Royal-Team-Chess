@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { User, Shield, Trophy, MessageSquare, ArrowLeft, Activity, Users, UserPlus } from 'lucide-react';
 import { supabase } from '../supabaseClient';
@@ -19,20 +19,13 @@ export function UserProfile({ language }) {
     const [showEditModal, setShowEditModal] = useState(false);
     const [showRequestModal, setShowRequestModal] = useState(false);
     const [isFriend, setIsFriend] = useState(false);
-    const [stats, setStats] = useState({
-        points: 0,
-        matchesPlayed: 0,
-        wins: 0,
-        draws: 0,
-        losses: 0
-    });
 
     const t = translations[language];
     const isOwnProfile = currentUser?.id === userId;
 
     useEffect(() => {
         fetchProfile();
-    }, [userId]);
+    }, [fetchProfile]);
 
     const handleRemoveFriend = async () => {
         if (!confirm(t.removeFriend + '?')) return;
@@ -52,7 +45,7 @@ export function UserProfile({ language }) {
         }
     };
 
-    const fetchProfile = async () => {
+    const fetchProfile = useCallback(async () => {
         try {
             setLoading(true);
 
@@ -73,7 +66,6 @@ export function UserProfile({ language }) {
                 .from('profiles')
                 .select('*')
                 .eq('id', userId)
-                .eq('id', userId)
                 .single();
 
             // 1.5 Fetch Club Info
@@ -92,29 +84,9 @@ export function UserProfile({ language }) {
 
             if (profileError) {
                 console.error('Error fetching profile:', profileError);
-                // Only mock if ERROR (e.g. user offline/table missing), but try to be graceful
                 setProfile(null);
             } else {
                 setProfile({ ...profileData, club: clubBox });
-                // 2. Set Stats from fetched profile data
-                // NEW: Get Season Points from user_stats (latest/current season)
-                const now = new Date();
-                const currentSeasonId = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-                const { data: statsData } = await supabase
-                    .from('user_stats')
-                    .select('season_points')
-                    .eq('user_id', userId)
-                    .eq('season_id', currentSeasonId)
-                    .maybeSingle();
-
-                setStats({
-                    points: statsData?.season_points || 0, // CORRECT SOURCE
-                    matchesPlayed: (profileData.wins || 0) + (profileData.losses || 0) + (profileData.draws || 0),
-                    wins: profileData.wins || 0,
-                    draws: profileData.draws || 0,
-                    losses: profileData.losses || 0,
-                    elo: profileData.elo || 300
-                });
             }
 
         } catch (error) {
@@ -122,7 +94,7 @@ export function UserProfile({ language }) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [currentUser, userId]);
 
     if (loading) {
         return (

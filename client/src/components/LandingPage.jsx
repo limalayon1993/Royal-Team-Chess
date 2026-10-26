@@ -52,7 +52,20 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
     const [teamSize, setTeamSize] = useState('2');
     const [timeControl, setTimeControl] = useState('10');
     const [roomLanguage, setRoomLanguage] = useState('en');
+    const [newRoomVoiceChat, setNewRoomVoiceChat] = useState(true);
+    const [newRoomBoardMode, setNewRoomBoardMode] = useState('board');
 
+    // Configuración modo Encuentro
+    const [newRoomMode, setNewRoomMode] = useState('standard');
+    const [encuentroPartidas, setEncuentroPartidas] = useState('4');
+    const [encuentroEnfrentamientos, setEncuentroEnfrentamientos] = useState('4');
+    const [encuentroCambios, setEncuentroCambios] = useState('4');
+    const [encuentroBenchView, setEncuentroBenchView] = useState('board');
+    const [encuentroTiempo, setEncuentroTiempo] = useState('40');
+    const [encuentroDesempates, setEncuentroDesempates] = useState(true);
+    const [encuentroDescanso, setEncuentroDescanso] = useState('10');
+    const [encuentroDescansoDesempate, setEncuentroDescansoDesempate] = useState('5');
+    const [encuentroCambiosDesempate, setEncuentroCambiosDesempate] = useState('2');
     // ... State for Browser ...
     const [browserSearch, setBrowserSearch] = useState('');
     const [selectedRoom, setSelectedRoom] = useState(null);
@@ -224,6 +237,8 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
     const [quickTime, setQuickTime] = useState('any');
     const [quickTeamSize, setQuickTeamSize] = useState('any');
     const [quickLanguage, setQuickLanguage] = useState('any');
+    const [quickVoiceChat, setQuickVoiceChat] = useState('any');
+    const [quickBoardMode, setQuickBoardMode] = useState('any');
 
     // ... State for User Search ...
     const [userSearchQuery, setUserSearchQuery] = useState('');
@@ -291,9 +306,22 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
             name: newRoomName,
             isPrivate,
             password: roomPassword,
-            teamSize,
-            time: timeControl,
-            language: roomLanguage
+            mode: newRoomMode,
+            teamSize: newRoomMode === 'encuentro' ? 8 : teamSize, // Máximo de convocados recomendado
+            time: newRoomMode === 'encuentro' ? encuentroTiempo * 60 : timeControl * 60,
+            language: roomLanguage,
+            voiceChat: newRoomVoiceChat,
+            boardMode: newRoomBoardMode,
+
+            // Encuentro specific settings
+            matches: parseInt(encuentroPartidas),
+            boards: parseInt(encuentroEnfrentamientos),
+            substitutions: parseInt(encuentroCambios),
+            benchViewMode: encuentroBenchView,
+            desempates: encuentroDesempates,
+            restTime: parseInt(encuentroDescanso),
+            tiebreakRestTime: parseInt(encuentroDescansoDesempate),
+            tiebreakSubstitutions: parseInt(encuentroCambiosDesempate)
         });
     };
 
@@ -665,66 +693,228 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
 
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 w-full shadow-2xl">
                 <div className="space-y-8">
-                    <div>
-                        <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.roomName}</label>
-                        <input
-                            type="text"
-                            value={newRoomName}
-                            onChange={(e) => setNewRoomName(e.target.value)}
-                            className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-4 px-6 text-lg text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 transition-all"
-                            placeholder={t.roomNamePlaceholder}
-                        />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.roomName}</label>
+                            <input
+                                type="text"
+                                value={newRoomName}
+                                onChange={(e) => setNewRoomName(e.target.value)}
+                                className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-4 px-6 text-lg text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                                placeholder={t.roomNamePlaceholder}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.gameMode || "Game Mode"}</label>
+                            <div className="relative">
+                                <select
+                                    value={newRoomMode}
+                                    onChange={(e) => setNewRoomMode(e.target.value)}
+                                    className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-4 px-6 text-lg text-white appearance-none focus:outline-none focus:border-emerald-500 transition-all cursor-pointer"
+                                >
+                                    <option value="standard">{t.standardMode || "Standard"}</option>
+                                    <option value="encuentro">{t.encuentroMode || "Encuentro (Match)"}</option>
+                                </select>
+                                <Trophy className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={20} />
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-6">
-                        <div>
-                            <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.teamSize}</label>
-                            <div className="relative">
-                                <select
-                                    value={teamSize}
-                                    onChange={(e) => setTeamSize(e.target.value)}
-                                    className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-4 px-6 text-lg text-white appearance-none focus:outline-none focus:border-emerald-500 transition-all cursor-pointer"
-                                >
-                                    <option value="1">1 vs 1</option>
-                                    <option value="2">2 vs 2</option>
-                                    <option value="3">3 vs 3</option>
-                                    <option value="4">4 vs 4</option>
-                                </select>
-                                <Users className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={20} />
+                    <div className="space-y-6">
+                        {newRoomMode === 'standard' ? (
+                            <div className="grid grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.teamSize}</label>
+                                    <div className="relative">
+                                        <select
+                                            value={teamSize}
+                                            onChange={(e) => setTeamSize(e.target.value)}
+                                            className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-4 px-6 text-lg text-white appearance-none focus:outline-none focus:border-emerald-500 transition-all cursor-pointer"
+                                        >
+                                            <option value="1">1 vs 1</option>
+                                            <option value="2">2 vs 2</option>
+                                            <option value="3">3 vs 3</option>
+                                            <option value="4">4 vs 4</option>
+                                        </select>
+                                        <Users className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={20} />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.timeControl}</label>
+                                    <div className="relative">
+                                        <select
+                                            value={timeControl}
+                                            onChange={(e) => setTimeControl(e.target.value)}
+                                            className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-4 px-6 text-lg text-white appearance-none focus:outline-none focus:border-emerald-500 transition-all cursor-pointer"
+                                        >
+                                            <option value="5">5 Minutes</option>
+                                            <option value="10">10 Minutes</option>
+                                            <option value="20">20 Minutes</option>
+                                            <option value="30">30 Minutes</option>
+                                            <option value="40">40 Minutes</option>
+                                            <option value="50">50 Minutes</option>
+                                            <option value="60">60 Minutes</option>
+                                        </select>
+                                        <Activity className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={20} />
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.timeControl}</label>
-                            <div className="relative">
-                                <select
-                                    value={timeControl}
-                                    onChange={(e) => setTimeControl(e.target.value)}
-                                    className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-4 px-6 text-lg text-white appearance-none focus:outline-none focus:border-emerald-500 transition-all cursor-pointer"
-                                >
-                                    <option value="5">5 Minutes</option>
-                                    <option value="10">10 Minutes</option>
-                                    <option value="20">20 Minutes</option>
-                                    <option value="30">30 Minutes</option>
-                                    <option value="40">40 Minutes</option>
-                                    <option value="50">50 Minutes</option>
-                                    <option value="60">60 Minutes</option>
-                                </select>
-                                <Activity className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={20} />
+                        ) : (
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 bg-amber-900/10 p-4 border border-amber-500/30 rounded-2xl">
+                                    <div>
+                                        <label className="block text-xs font-bold text-amber-500/80 mb-2 uppercase tracking-wider">{t.matches || "Rounds"}</label>
+                                        <div className="relative">
+                                            <select value={encuentroPartidas} onChange={(e) => setEncuentroPartidas(e.target.value)} className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:border-amber-500">
+                                                {[1, 2, 3, 4, 6, 8].map(n => <option key={n} value={n}>{n}</option>)}
+                                            </select>
+                                            <RefreshCw className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-amber-500/80 mb-2 uppercase tracking-wider">{t.boardsPerMatch || "Boards/Round"}</label>
+                                        <div className="relative">
+                                            <select value={encuentroEnfrentamientos} onChange={(e) => setEncuentroEnfrentamientos(e.target.value)} className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:border-amber-500">
+                                                {[2, 3, 4, 6, 8].map(n => <option key={n} value={n}>{n}</option>)}
+                                            </select>
+                                            <Users className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-amber-500/80 mb-2 uppercase tracking-wider">{t.substitutions || "Substitutions"}</label>
+                                        <div className="relative">
+                                            <select value={encuentroCambios} onChange={(e) => setEncuentroCambios(e.target.value)} className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:border-amber-500">
+                                                {[0, 2, 4, 6, 8, 10].map(n => <option key={n} value={n}>{n}</option>)}
+                                            </select>
+                                            <RefreshCw className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-amber-500/80 mb-2 uppercase tracking-wider">{t.timePerTeam || "Time/Round"}</label>
+                                        <div className="relative">
+                                            <select value={encuentroTiempo} onChange={(e) => setEncuentroTiempo(e.target.value)} className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:border-amber-500">
+                                                <option value="10">10 Minutes</option>
+                                                <option value="20">20 Minutes</option>
+                                                <option value="30">30 Minutes</option>
+                                                <option value="40">40 Minutes</option>
+                                                <option value="60">60 Minutes</option>
+                                            </select>
+                                            <Clock className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 bg-amber-900/10 p-4 border border-amber-500/30 rounded-2xl">
+                                    <div className="flex flex-col col-span-1 md:col-span-4 mb-2">
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="checkbox"
+                                                id="enc-desempates"
+                                                checked={encuentroDesempates}
+                                                onChange={(e) => setEncuentroDesempates(e.target.checked)}
+                                                className="w-5 h-5 rounded border-slate-700 text-amber-500 focus:ring-amber-500 bg-slate-900/50 cursor-pointer"
+                                            />
+                                            <label htmlFor="enc-desempates" className="text-sm font-bold text-amber-500/80 uppercase tracking-wider cursor-pointer">
+                                                {t.tiebreaks || "Tiebreaks"}
+                                            </label>
+                                        </div>
+                                        <p className="text-[11px] text-amber-500/60 mt-2 ml-8 max-w-xl">
+                                            {t.tiebreaksDesc || "If there's a tie at the end of the match, extra rounds are played dividing the time in half (down to a minimum of 10 min per team)."}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-amber-500/80 mb-2 uppercase tracking-wider">{t.restTimeRounds || "Rest Time Between Rounds (min)"}</label>
+                                        <div className="relative">
+                                            <select value={encuentroDescanso} onChange={(e) => setEncuentroDescanso(e.target.value)} className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:border-amber-500">
+                                                {[1, 3, 5, 10, 20, 30, 40, 50, 60].map(n => <option key={n} value={n}>{n}</option>)}
+                                            </select>
+                                            <Clock className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+                                        </div>
+                                    </div>
+                                    {encuentroDesempates && (
+                                        <>
+                                            <div>
+                                                <label className="block text-xs font-bold text-amber-500/80 mb-2 uppercase tracking-wider">{t.tiebreakRestTime || "Pre-Tiebreak Rest Time (min)"}</label>
+                                                <div className="relative">
+                                                    <select value={encuentroDescansoDesempate} onChange={(e) => setEncuentroDescansoDesempate(e.target.value)} className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:border-amber-500">
+                                                        {[1, 3, 5, 10, 20, 30, 40, 50, 60].map(n => <option key={n} value={n}>{n}</option>)}
+                                                    </select>
+                                                    <Clock className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-amber-500/80 mb-2 uppercase tracking-wider" title={t.tiebreakSubstitutionsTitle || "Extra substitutions added for each tiebreak round"}>{t.tiebreakSubstitutions || "Extra Substitutions (Tiebreaks)"}</label>
+                                                <div className="relative">
+                                                    <select value={encuentroCambiosDesempate} onChange={(e) => setEncuentroCambiosDesempate(e.target.value)} className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:border-amber-500">
+                                                        {[0, 1, 2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}
+                                                    </select>
+                                                    <RefreshCw className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.language}</label>
-                            <div className="relative">
-                                <select
-                                    value={roomLanguage}
-                                    onChange={(e) => setRoomLanguage(e.target.value)}
-                                    className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-4 px-6 text-lg text-white appearance-none focus:outline-none focus:border-emerald-500 transition-all cursor-pointer"
-                                >
-                                    <option value="en">English</option>
-                                    <option value="es">Español</option>
-                                </select>
-                                <Globe className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={20} />
+                        )}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.language}</label>
+                                <div className="relative">
+                                    <select
+                                        value={roomLanguage}
+                                        onChange={(e) => setRoomLanguage(e.target.value)}
+                                        className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-4 px-6 text-lg text-white appearance-none focus:outline-none focus:border-emerald-500 transition-all cursor-pointer"
+                                    >
+                                        <option value="en">English</option>
+                                        <option value="es">Español</option>
+                                    </select>
+                                    <Globe className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={20} />
+                                </div>
                             </div>
+                            <div>
+                                <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.enableVoiceChat || "Voice Chat"}</label>
+                                <div className="relative">
+                                    <select
+                                        value={newRoomVoiceChat.toString()}
+                                        onChange={(e) => setNewRoomVoiceChat(e.target.value === 'true')}
+                                        className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-4 px-6 text-lg text-white appearance-none focus:outline-none focus:border-emerald-500 transition-all cursor-pointer"
+                                    >
+                                        <option value="true">{t.enabledVoiceChat || "Enabled"}</option>
+                                        <option value="false">{t.disabledVoiceChat || "Disabled"}</option>
+                                    </select>
+                                    <MessageSquare className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={20} />
+                                </div>
+                            </div>
+                            {newRoomMode === 'standard' ? (
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.viewMode || "View Mode"}</label>
+                                    <div className="relative">
+                                        <select
+                                            value={newRoomBoardMode}
+                                            onChange={(e) => setNewRoomBoardMode(e.target.value)}
+                                            className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-4 px-6 text-lg text-white appearance-none focus:outline-none focus:border-emerald-500 transition-all cursor-pointer"
+                                        >
+                                            <option value="board">{t.boardMode || "Board Mode"}</option>
+                                            <option value="indicators">{t.indicatorsMode || "Indicators Mode"}</option>
+                                        </select>
+                                        <Eye className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={20} />
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.benchViewMode || "Bench View Mode"}</label>
+                                    <div className="relative">
+                                        <select
+                                            value={encuentroBenchView}
+                                            onChange={(e) => setEncuentroBenchView(e.target.value)}
+                                            className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-4 px-6 text-lg text-white appearance-none focus:outline-none focus:border-amber-500 transition-all cursor-pointer"
+                                        >
+                                            <option value="board">{t.boardMode || "Board Mode"}</option>
+                                            <option value="indicators">{t.indicatorsMode || "Indicators Mode"}</option>
+                                        </select>
+                                        <Eye className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={20} />
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -812,7 +1002,7 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                             value={browserSearch}
                             onChange={(e) => setBrowserSearch(e.target.value)}
                             className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-4 pl-14 pr-4 text-lg text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 transition-all"
-                            placeholder={t.searchPlaceholder}
+                            placeholder={t.searchRoomsPlaceholder}
                         />
                     </div>
                 </div>
@@ -939,7 +1129,7 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                 {/* Searching Overlay */}
 
 
-                <div className="grid md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                     {/* Time Preference */}
                     <div>
                         <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">{t.timeControl || "Time"}</label>
@@ -1007,6 +1197,28 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                             {party ? <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-400" size={16} /> : <Globe className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />}
                         </div>
                     </div>
+
+                    {/* Voice Chat Preference */}
+                    <div>
+                        <label className="block text-sm font-bold text-slate-400 mb-3 uppercase tracking-wider">
+                            {t.enableVoiceChat || "Voice Chat"}
+                        </label>
+                        <div className="relative">
+                            <select
+                                value={party ? 'any' : quickVoiceChat}
+                                onChange={(e) => setQuickVoiceChat(e.target.value)}
+                                disabled={!!party}
+                                className={`w-full bg-slate-950/50 border rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:border-blue-500 cursor-pointer
+                                   ${party ? 'border-indigo-500/50 text-indigo-200 cursor-not-allowed' : 'border-slate-700'}
+                                `}
+                            >
+                                <option value="any">{t.anyVoiceChat || "Any"}</option>
+                                <option value="true">{t.enabledVoiceChat || "Enabled"}</option>
+                                <option value="false">{t.disabledVoiceChat || "Disabled"}</option>
+                            </select>
+                            {party ? <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-400" size={16} /> : <MessageSquare className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />}
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1032,11 +1244,15 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                             const searchSettings = party ? {
                                 time: quickTime,
                                 teamSize: party.members.length.toString(),
-                                language: 'any'
+                                language: 'any',
+                                voiceChat: 'any',
+                                boardMode: 'any'
                             } : {
                                 time: quickTime,
                                 teamSize: quickTeamSize,
-                                language: quickLanguage
+                                language: quickLanguage,
+                                voiceChat: quickVoiceChat,
+                                boardMode: quickBoardMode
                             };
 
                             // Correctly structure the payload for the server

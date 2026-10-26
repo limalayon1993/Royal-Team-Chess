@@ -43,10 +43,11 @@ class GameManager {
                 return;
             }
 
-            // Default settings
             const roomSettings = {
                 time: settings?.time || 600, // seconds per team
                 teamSize: settings?.teamSize || 2, // players per team
+                voiceChat: settings?.voiceChat ?? true,
+                boardMode: settings?.boardMode || 'board',
                 ...settings
             };
 
@@ -82,9 +83,25 @@ class GameManager {
                 active: false,
                 interval: null,
                 scores: { white: 0, black: 0 },
-                boardResults: [] // { boardId, winner, reason, points }
+                boardResults: [], // { boardId, winner, reason, points }
+                encuentroState: roomSettings.mode === 'encuentro' ? {
+                    status: 'lobby', // 'lobby', 'voting_captain', 'lineup', 'playing', 'break', 'tiebreaker', 'finished'
+                    currentRound: 1,
+                    totalRounds: roomSettings.matches || 4,
+                    boardsPerRound: roomSettings.boards || 4,
+                    tiebreakerLevel: 0, // 0 = main match, 1 = 20min, 2 = 10min, 3 = 10min...
+                    captains: { white: null, black: null },
+                    votes: { white: {}, black: {} }, // socketId -> votedSocketId
+                    substitutionsLeft: { white: roomSettings.substitutions || 4, black: roomSettings.substitutions || 4 },
+                    lineups: { white: [], black: [] }, // Array of socketIds mapped to board indices [0..boards-1]
+                    bench: { white: [], black: [] }, // Array of socketIds in bench
+                    matchPoints: { white: 0, black: 0 }, // 3 points for winning the round, 1 for draw
+                    roundPoints: { white: 0, black: 0 }, // 3 points per board won, 1 per board drawn
+                    history: [] // Store previous rounds results
+                } : null
             });
 
+            const room = this.rooms.get(roomId);
             if (username) {
                 room.usernames.set(socket.id, username);
 
@@ -154,7 +171,7 @@ class GameManager {
                 });
             }
         });
-        console.log(`[GameManager] getRooms called. Returning ${roomsList.length} rooms.`);
+        console.log(`[GameManager] getRooms called. Returning ${roomsList.length} rooms. First:`, JSON.stringify(roomsList[0]));
         socket.emit('roomsList', roomsList);
     }
 
@@ -176,7 +193,7 @@ class GameManager {
                 isMatchmaking: room.metadata.isMatchmaking
             });
         });
-        console.log(`[GameManager] Broadcasting rooms list to all clients. Count: ${roomsList.length}`);
+        console.log(`[GameManager] Broadcasting rooms list to all clients. Count: ${roomsList.length}. First:`, JSON.stringify(roomsList[0]));
         this.io.emit('roomsList', roomsList);
     }
 
@@ -329,6 +346,7 @@ class GameManager {
             usernames: Object.fromEntries(room.usernames),
             roomName: room.metadata.name,
             isMatchmaking: room.metadata.isMatchmaking,
+            encuentroState: room.encuentroState || null,
             hostId: room.hostId, // Send hostId
             boards: room.boards ? room.boards.map(b => ({
                 id: b.id,
@@ -346,21 +364,6 @@ class GameManager {
         this.broadcastRoomsList();
     }
 
-    broadcastRoomsList() {
-        console.log(`[GameManager] Broadcasting rooms list to all clients. Count: ${this.rooms.size}`);
-        const rooms = Array.from(this.rooms.values()).map(r => ({
-            id: r.id,
-            name: r.metadata.name,
-            players: r.players.white.length + r.players.black.length,
-            maxPlayers: r.settings.teamSize * 2,
-            maxPlayers: r.settings.teamSize * 2,
-            isPrivate: r.metadata.isPrivate,
-            isMatchmaking: r.metadata.isMatchmaking,
-            language: r.metadata.language,
-            active: r.active
-        }));
-        this.io.emit('roomsList', rooms);
-    }
 
     async handleFindMatch(socket, { username, settings }) {
         try {
@@ -566,6 +569,10 @@ class GameManager {
         if (criteria.teamSize !== 'any' && parseInt(criteria.teamSize) !== roomSettings.teamSize) return null;
         // Time
         if (criteria.time !== 'any' && (parseInt(criteria.time) * 60) !== roomSettings.time) return null;
+        // Voice Chat
+        if (criteria.voiceChat && criteria.voiceChat !== 'any' && String(roomSettings.voiceChat) !== criteria.voiceChat) return null;
+        // Board Mode
+        if (criteria.boardMode && criteria.boardMode !== 'any' && roomSettings.boardMode !== criteria.boardMode) return null;
 
         // 2. Determine Threshold
         const now = Date.now();
@@ -842,6 +849,11 @@ class GameManager {
         const time2 = s2.time;
         if (time1 !== 'any' && time2 !== 'any' && parseInt(time1) !== parseInt(time2)) return false;
 
+        // Voice Chat
+        const vc1 = s1.voiceChat;
+        const vc2 = s2.voiceChat;
+        if (vc1 && vc2 && vc1 !== 'any' && vc2 !== 'any' && vc1 !== vc2) return false;
+
         // Language
         // e1 (Team A) vs e2 (Team B)
         // Team A Language must match e1 Members (Checked internally by e1).
@@ -913,6 +925,11 @@ class GameManager {
         const time = (e1.settings.time !== 'any') ? parseInt(e1.settings.time) * 60 :
             (e2.settings.time !== 'any') ? parseInt(e2.settings.time) * 60 : 600;
 
+        // Voice Chat Resolution
+        const vc1 = e1.settings.voiceChat;
+        const vc2 = e2.settings.voiceChat;
+        const resolvedVoiceChat = (vc1 === 'false' || vc2 === 'false') ? false : true;
+
         // Language Resolution (For Metadata display, though teams are separate)
         const lang = (e1.settings.language !== 'any') ? e1.settings.language :
             (e2.settings.language !== 'any') ? e2.settings.language : 'en';
@@ -924,6 +941,7 @@ class GameManager {
             isMatchmaking: true,
             teamSize: size,
             time: time, // time is in seconds
+            voiceChat: resolvedVoiceChat,
             clubIds: {
                 white: e1.clubId || null,
                 black: e2.clubId || null
@@ -969,19 +987,36 @@ class GameManager {
 
 
     startGame(socket, { roomId }) {
+        console.log(`[GameManager] startGame called by ${socket.id} for room ${roomId}`);
         const room = this.rooms.get(roomId);
-        if (!room) return;
-        if (room.active) return; // Prevent double start
-
-        // Ensure equal players (basic pairing logic)
-        if (room.players.white.length !== room.players.black.length) {
-            socket.emit('error', 'Teams must be equal size to start');
+        if (!room) {
+            console.log(`[GameManager] startGame failed: room not found`);
             return;
         }
 
-        if (room.players.white.length === 0) {
-            socket.emit('error', 'Need players to start');
-            return;
+        console.log(`[GameManager] startGame mode is ${room.settings.mode}`);
+        if (room.settings.mode === 'encuentro') {
+            console.log(`[GameManager] startGame: meeting minPlayers check... status is ${room.encuentroState.status}`);
+            if (room.encuentroState.status !== 'lobby') return; // Prevent double start
+
+            // Encuentro requires at least N players per team (boardsPerRound)
+            const minPlayers = room.encuentroState.boardsPerRound || room.settings.boardsPerMatch || 4;
+            if (room.players.white.length < minPlayers || room.players.black.length < minPlayers) {
+                console.log(`[GameManager] startGame failed: not enough players (${room.players.white.length} vs ${room.players.black.length}, min ${minPlayers})`);
+                socket.emit('error', `Se necesitan al menos ${minPlayers} jugadores por equipo para comenzar el Encuentro.`);
+                return;
+            }
+        } else {
+            if (room.active) return; // Prevent double start for standard
+            // Ensure equal players (basic pairing logic)
+            if (room.players.white.length !== room.players.black.length) {
+                socket.emit('error', 'Teams must be equal size to start');
+                return;
+            }
+            if (room.players.white.length === 0) {
+                socket.emit('error', 'Need players to start');
+                return;
+            }
         }
 
         // 1. SORT TEAMS NOW (So users see the final order during countdown)
@@ -995,11 +1030,16 @@ class GameManager {
             room.players.black.sort((a, b) => getElo(b) - getElo(a));
 
             console.log('[Matchmaking] Teams Sorted by ELO');
-            console.log('White ELOs:', room.players.white.map(id => getElo(id)));
-            console.log('Black ELOs:', room.players.black.map(id => getElo(id)));
-
-            // Emit update immediately so clients re-render with new order
             this.emitRoomUpdate(roomId);
+        }
+
+        if (room.settings.mode === 'encuentro') {
+            console.log(`[GameManager] changing status to voting_captain and emitting...`);
+            room.encuentroState.status = 'voting_captain';
+            room.active = true; // Mark as active so it disappears from idle lobby lists if needed
+            this.emitRoomUpdate(roomId);
+            this.io.to(roomId).emit('sys_message', 'El encuentro ha comenzado. Votando capitanes...');
+            return;
         }
 
         // 2. EMIT COUNTDOWN START
@@ -1076,6 +1116,204 @@ class GameManager {
         });
         this.broadcastVisualizerUpdate(roomId);
         this.broadcastSpectatorUpdate(roomId);
+    }
+
+    // --- ENCUENTRO MODE SPECIFIC LOGIC ---
+    voteCaptain(socket, { roomId, votedSocketId }) {
+        const room = this.rooms.get(roomId);
+        if (!room || room.settings.mode !== 'encuentro' || room.encuentroState.status !== 'voting_captain') return;
+
+        const team = room.players.white.includes(socket.id) ? 'white' : room.players.black.includes(socket.id) ? 'black' : null;
+        if (!team) return;
+        if (!room.players[team].includes(votedSocketId)) return;
+
+        room.encuentroState.votes[team][socket.id] = votedSocketId;
+        this.emitRoomUpdate(roomId);
+        this.io.to(roomId).emit('encuentroUpdate', room.encuentroState);
+        this.checkCaptainVotes(roomId, team);
+    }
+
+    checkCaptainVotes(roomId, team) {
+        const room = this.rooms.get(roomId);
+        if (!room) return;
+
+        const playersInTeam = room.players[team].length;
+        const votes = room.encuentroState.votes[team];
+        const voteCounts = {};
+        Object.values(votes).forEach(v => voteCounts[v] = (voteCounts[v] || 0) + 1);
+
+        const majorityNeeded = Math.floor(playersInTeam / 2) + 1;
+        let elected = null;
+
+        for (const [candidate, count] of Object.entries(voteCounts)) {
+            if (count >= majorityNeeded) {
+                elected = candidate;
+                break;
+            }
+        }
+
+        if (!elected && Object.keys(votes).length === playersInTeam) {
+            let maxVotes = 0;
+            let candidates = [];
+            for (const [candidate, count] of Object.entries(voteCounts)) {
+                if (count > maxVotes) {
+                    maxVotes = count;
+                    candidates = [candidate];
+                } else if (count === maxVotes) {
+                    candidates.push(candidate);
+                }
+            }
+            elected = candidates[Math.floor(Math.random() * candidates.length)];
+        }
+
+        if (elected) {
+            room.encuentroState.captains[team] = elected;
+            this.io.to(roomId).emit('sys_message', `El equipo ${team === 'white' ? 'Blancas' : 'Negras'} ha elegido a su capitán.`);
+
+            if (room.encuentroState.captains.white && room.encuentroState.captains.black) {
+                room.encuentroState.status = 'lineup';
+                this.io.to(roomId).emit('sys_message', 'Capitanes elegidos. Esperando alineaciones...');
+            }
+            this.emitRoomUpdate(roomId);
+            this.io.to(roomId).emit('encuentroUpdate', room.encuentroState);
+        }
+    }
+
+    submitLineup(socket, { roomId, lineup, bench }) {
+        const room = this.rooms.get(roomId);
+        if (!room || room.settings.mode !== 'encuentro' || room.encuentroState.status !== 'lineup' && room.encuentroState.status !== 'break') return;
+
+        const team = room.encuentroState.captains.white === socket.id ? 'white' : room.encuentroState.captains.black === socket.id ? 'black' : null;
+        if (!team) return;
+
+        if (!lineup || lineup.length !== room.encuentroState.boardsPerRound) {
+            socket.emit('error', 'Alineación inválida.');
+            return;
+        }
+
+        const oldLineup = room.encuentroState.lineups[team] || [];
+
+        let diffCount = 0;
+        if (room.encuentroState.status === 'break' && oldLineup.length > 0) {
+            for (let i = 0; i < lineup.length; i++) {
+                if (lineup[i] !== oldLineup[i]) diffCount++;
+            }
+            if (diffCount > room.encuentroState.substitutionsLeft[team]) {
+                socket.emit('error', `Sustituciones insuficientes. Intentando hacer ${diffCount} cambios, pero solo quedan ${room.encuentroState.substitutionsLeft[team]}.`);
+                return;
+            }
+            room.encuentroState.substitutionsLeft[team] -= diffCount;
+            // Mark team as ready for the next round
+            if (!room.encuentroState.readyForNextRound) room.encuentroState.readyForNextRound = {};
+            room.encuentroState.readyForNextRound[team] = true;
+        }
+
+        room.encuentroState.lineups[team] = lineup;
+        room.encuentroState.bench[team] = bench || [];
+
+        this.io.to(roomId).emit('sys_message', `El capitán de las ${team === 'white' ? 'Blancas' : 'Negras'} ha confirmado su alineación.`);
+
+        // If both lineups submitted and we were waiting for them to start the first round
+        if (room.encuentroState.status === 'lineup') {
+            if (room.encuentroState.lineups.white.length > 0 && room.encuentroState.lineups.black.length > 0) {
+                this._startEncuentroRound(roomId);
+            }
+        }
+        // If both teams are ready during a break, we can start the next round early
+        else if (room.encuentroState.status === 'break') {
+            if (room.encuentroState.readyForNextRound?.white && room.encuentroState.readyForNextRound?.black) {
+                // Clear the break timer if active
+                if (room.breakTimerInterval) {
+                    clearInterval(room.breakTimerInterval);
+                    room.breakTimerInterval = null;
+                }
+                this._startEncuentroRound(roomId);
+            }
+        }
+
+        this.emitRoomUpdate(roomId);
+        this.io.to(roomId).emit('encuentroUpdate', room.encuentroState);
+    }
+
+    _startEncuentroRound(roomId) {
+        const room = this.rooms.get(roomId);
+        if (!room) return;
+
+        room.encuentroState.status = 'playing';
+        room.active = true;
+
+        // Reset round points
+        room.encuentroState.roundPoints = { white: 0, black: 0 };
+        room.encuentroState.readyForNextRound = { white: false, black: false };
+
+        this.emitRoomUpdate(roomId);
+        this.io.to(roomId).emit('encuentroUpdate', room.encuentroState);
+        this.io.to(roomId).emit('sys_message', `La Ronda ${room.encuentroState.currentRound} está a punto de comenzar...`);
+
+        setTimeout(() => {
+            this._launchEncuentroBoards(roomId);
+        }, 5000);
+    }
+
+    _launchEncuentroBoards(roomId) {
+        const room = this.rooms.get(roomId);
+        if (!room) return;
+
+        room.boards = [];
+        room.boardResults = [];
+
+        let roundTime = room.settings.time;
+        if (room.encuentroState.tiebreakerLevel > 0) {
+            // Cut time in half per level, down to 10 mins (600 seconds) minimum
+            roundTime = Math.max(10 * 60, Math.floor(room.settings.time / Math.pow(2, room.encuentroState.tiebreakerLevel)));
+        }
+
+        room.timer = { white: roundTime, black: roundTime };
+
+        const whitePlaysWhite = room.encuentroState.currentRound % 2 !== 0;
+
+        for (let i = 0; i < room.encuentroState.boardsPerRound; i++) {
+            const wLineupId = room.encuentroState.lineups.white[i];
+            const bLineupId = room.encuentroState.lineups.black[i];
+
+            const whitePlayerId = whitePlaysWhite ? wLineupId : bLineupId;
+            const blackPlayerId = whitePlaysWhite ? bLineupId : wLineupId;
+
+            const game = new Chess();
+            room.boards.push({
+                id: i,
+                game: game,
+                whitePlayerId: whitePlayerId,
+                blackPlayerId: blackPlayerId,
+                active: true,
+                heatmap: new Heatmap(),
+                analysis: { score: 0 },
+                whiteTimeSpent: 0,
+                blackTimeSpent: 0
+            });
+        }
+
+        room.lastMoveTime = Date.now();
+        if (room.interval) clearInterval(room.interval);
+
+        room.interval = setInterval(() => {
+            this.handleTimeRunOut(roomId);
+        }, 1000);
+
+        this.emitRoomUpdate(roomId);
+        this.io.to(roomId).emit('gameStart', {
+            boards: room.boards.map(b => ({
+                id: b.id,
+                white: b.whitePlayerId,
+                black: b.blackPlayerId
+            }))
+        });
+
+        room.boards.forEach(board => {
+            this.broadcastGameState(roomId, board);
+        });
+
+        this.broadcastVisualizerUpdate(roomId);
     }
 
     makeMove(socket, { roomId, move }) {
@@ -1171,12 +1409,15 @@ class GameManager {
                 if (!b.active) return;
 
                 if (b.game.turn() === 'w') {
-                    whiteToMoveCount++;
                     b.whiteTimeSpent += delta;
                 } else {
-                    blackToMoveCount++;
                     b.blackTimeSpent += delta;
                 }
+
+                const activePlayerId = b.game.turn() === 'w' ? b.whitePlayerId : b.blackPlayerId;
+                const activeTeam = room.players.white.includes(activePlayerId) ? 'white' : 'black';
+                if (activeTeam === 'white') whiteToMoveCount++;
+                else blackToMoveCount++;
             });
 
             if (whiteToMoveCount > 0) room.timer.white -= delta * whiteToMoveCount;
@@ -1187,12 +1428,12 @@ class GameManager {
             // This ensures trackBoardStats is called for each board.
             if (room.timer.white <= 0) {
                 room.timer.white = 0;
-                this.forceEndAllActiveBoards(roomId, 'black', 'timeout');
+                this.forceEndAllActiveBoards(roomId, 'white', 'timeout');
                 return;
             }
             if (room.timer.black <= 0) {
                 room.timer.black = 0;
-                this.forceEndAllActiveBoards(roomId, 'white', 'timeout');
+                this.forceEndAllActiveBoards(roomId, 'black', 'timeout');
                 return;
             }
 
@@ -1222,14 +1463,14 @@ class GameManager {
         }
     }
 
-    forceEndAllActiveBoards(roomId, winner, reason) {
+    forceEndAllActiveBoards(roomId, losingTeam, reason) {
         const room = this.rooms.get(roomId);
         if (!room) return;
 
-        // Iterate a copy or check active status carefully
         room.boards.forEach(board => {
             if (board.active) {
-                this.handleBoardEnd(roomId, board.id, winner, reason, 3);
+                const winningColor = room.players[losingTeam].includes(board.whitePlayerId) ? 'black' : 'white';
+                this.handleBoardEnd(roomId, board.id, winningColor, reason, 3);
             }
         });
     }
@@ -1259,13 +1500,24 @@ class GameManager {
             this.trackBoardStats(room, board, winner, reason, points);
         }
 
-        // Update Team Score
-        if (winner === 'white') room.scores.white += points;
-        else if (winner === 'black') room.scores.black += points;
-        else {
-            // Draw
-            room.scores.white += points;
-            room.scores.black += points;
+        // Update Team Score depending on mode
+        if (room.settings.mode === 'encuentro') {
+            if (winner) {
+                const winningPlayerId = winner === 'white' ? board.whitePlayerId : board.blackPlayerId;
+                const winningTeam = room.players.white.includes(winningPlayerId) ? 'white' : 'black';
+                room.encuentroState.roundPoints[winningTeam] += 3;
+            } else {
+                // Tablas (Draw)
+                room.encuentroState.roundPoints.white += 1;
+                room.encuentroState.roundPoints.black += 1;
+            }
+        } else {
+            if (winner === 'white') room.scores.white += points;
+            else if (winner === 'black') room.scores.black += points;
+            else {
+                room.scores.white += points;
+                room.scores.black += points;
+            }
         }
 
         const whiteName = room.usernames.get(board.whitePlayerId) || 'Unknown';
@@ -1282,14 +1534,116 @@ class GameManager {
             scores: room.scores
         });
 
-        // Check if Match Over (all boards done)
+        // Check if Match/Round Over (all boards done)
         if (room.boards.every(b => !b.active)) {
+            if (room.settings.mode === 'encuentro') {
+                this._handleEncuentroRoundEnd(roomId);
+            } else {
+                this.endMatch(roomId);
+            }
+        }
+    }
+
+    _handleEncuentroRoundEnd(roomId) {
+        const room = this.rooms.get(roomId);
+        if (!room) return;
+
+        const rpW = room.encuentroState.roundPoints.white;
+        const rpB = room.encuentroState.roundPoints.black;
+
+        // Assign Match Points based on Round Points
+        if (rpW > rpB) room.encuentroState.matchPoints.white += 3;
+        else if (rpB > rpW) room.encuentroState.matchPoints.black += 3;
+        else {
+            room.encuentroState.matchPoints.white += 1;
+            room.encuentroState.matchPoints.black += 1;
+        }
+
+        // Save History
+        room.encuentroState.history.push({
+            round: room.encuentroState.currentRound,
+            tiebreakerLevel: room.encuentroState.tiebreakerLevel,
+            roundPoints: { ...room.encuentroState.roundPoints }
+        });
+
+        // Determine next state
+        const isTiebreaker = room.encuentroState.tiebreakerLevel > 0;
+        const mpW = room.encuentroState.matchPoints.white;
+        const mpB = room.encuentroState.matchPoints.black;
+
+        let shouldEnd = false;
+
+        if (!isTiebreaker) {
+            if (room.encuentroState.currentRound >= room.encuentroState.totalRounds) {
+                if (mpW !== mpB) shouldEnd = true; // Clear winner
+                else {
+                    // Tiebreaker needed
+                    if (room.settings.desempates === false) {
+                        shouldEnd = true; // End in draw if tiebreaks are disabled
+                    } else {
+                        room.encuentroState.tiebreakerLevel = 1;
+                    }
+                }
+            } else {
+                room.encuentroState.currentRound++;
+            }
+        } else {
+            // In Tiebreaker
+            // Re-evaluate round points sum only across Tiebreakers or total?
+            // "De persistir el empate ... se vuelven a sumar todos los puntos de partidas totales" 
+            // In a tiebreaker, round points of tiebreaker dictate winner. If draw, another tiebreaker.
+            if (rpW !== rpB) shouldEnd = true; // Tiebreaker resolved
+            else room.encuentroState.tiebreakerLevel++; // Another tiebreaker
+        }
+
+        if (shouldEnd) {
             this.endMatch(roomId);
         } else {
-            // Partial ELO update? No, usually update at end of match or per board?
-            // For team chess, maybe per board is fine.
-            // Let's UPDATE ELO NOW for the finished board
-            // Already called above.
+            // Go to Break
+            room.encuentroState.status = 'break';
+            room.active = false;
+            if (isTiebreaker) {
+                // "En caso de empate se agregan X cambios adicionales"
+                const extraSubs = room.settings.tiebreakSubstitutions !== undefined ? room.settings.tiebreakSubstitutions : 2;
+                room.encuentroState.substitutionsLeft.white += extraSubs;
+                room.encuentroState.substitutionsLeft.black += extraSubs;
+            }
+
+            this.emitRoomUpdate(roomId);
+            this.io.to(roomId).emit('encuentroUpdate', room.encuentroState);
+            this.io.to(roomId).emit('sys_message', 'Ronda terminada. Estamos en el descanso. Capitanes, confirmen cambios.');
+
+            // Start break timer (configured by user)
+            const restTime = room.settings.restTime !== undefined ? room.settings.restTime : 10;
+            const tiebreakRestTime = room.settings.tiebreakRestTime !== undefined ? room.settings.tiebreakRestTime : 5;
+            const breakTimeSeconds = isTiebreaker ? tiebreakRestTime * 60 : restTime * 60;
+            room.encuentroState.breakRemainingTime = breakTimeSeconds;
+
+            if (room.breakTimerInterval) {
+                clearInterval(room.breakTimerInterval);
+            }
+
+            room.breakTimerInterval = setInterval(() => {
+                const r = this.rooms.get(roomId);
+                if (!r || r.encuentroState.status !== 'break') {
+                    clearInterval(room.breakTimerInterval);
+                    return;
+                }
+
+                r.encuentroState.breakRemainingTime--;
+
+                // Emit time every second (or only when needed, but 1s is fine for accuracy without overwhelming if it's just this room)
+                this.io.to(roomId).emit('encuentroTimer', { breakRemainingTime: r.encuentroState.breakRemainingTime });
+
+                if (r.encuentroState.breakRemainingTime <= 0) {
+                    clearInterval(r.breakTimerInterval);
+                    r.breakTimerInterval = null;
+
+                    // Force start next round
+                    this.io.to(roomId).emit('sys_message', 'El tiempo de descanso ha finalizado. Comenzando la siguiente ronda.');
+                    this._startEncuentroRound(roomId);
+                }
+            }, 1000);
         }
     }
 
@@ -1418,15 +1772,25 @@ class GameManager {
 
         let matchWinner = winner;
         if (!matchWinner) {
-            matchWinner = room.scores.white > room.scores.black ? 'white' :
-                room.scores.black > room.scores.white ? 'black' : 'draw';
+            if (room.settings.mode === 'encuentro') {
+                const mpW = room.encuentroState.matchPoints.white;
+                const mpB = room.encuentroState.matchPoints.black;
+                matchWinner = mpW > mpB ? 'white' : mpB > mpW ? 'black' : 'draw';
+            } else {
+                matchWinner = room.scores.white > room.scores.black ? 'white' :
+                    room.scores.black > room.scores.white ? 'black' : 'draw';
+            }
         }
+
+        const finalScores = room.settings.mode === 'encuentro' ? room.encuentroState.matchPoints : room.scores;
 
         this.io.to(roomId).emit('matchOver', {
             winner: matchWinner,
             reason: reason || 'score',
-            scores: room.scores,
-            details: room.boardResults
+            scores: finalScores,
+            details: room.boardResults,
+            mode: room.settings.mode,
+            encuentroHistory: room.settings.mode === 'encuentro' ? room.encuentroState.history : null
         });
 
         // CLUB STATS UPDATE

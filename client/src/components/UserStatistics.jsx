@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Activity, Trophy, ArrowLeft, History, Swords, Clock, Flag, PieChart, Info } from 'lucide-react';
 import { supabase } from '../supabaseClient';
@@ -17,15 +17,40 @@ export function UserStatistics({ language, embedded = false }) {
 
     useEffect(() => {
         fetchInitialData();
-    }, [userId]);
+    }, [fetchInitialData]);
 
     useEffect(() => {
         if (selectedSeason) {
             fetchStats(selectedSeason);
         }
-    }, [selectedSeason]);
+    }, [selectedSeason, fetchStats]);
 
-    const fetchInitialData = async () => {
+    const fetchStats = useCallback(async (seasonId) => {
+        try {
+            const { data, error } = await supabase
+                .from('user_stats')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('season_id', seasonId)
+                .maybeSingle();
+
+            if (error) throw error;
+            setStats(data || {
+                confrontations_played: 0,
+                wins: 0,
+                losses: 0,
+                draws: 0,
+                season_points: 0,
+                pieces_eaten: 0,
+                wins_checkmate: 0, wins_time: 0, wins_resignation: 0,
+                losses_checkmate: 0, losses_time: 0, losses_resignation: 0
+            });
+        } catch (e) {
+            console.error('Error fetching stats:', e);
+        }
+    }, [userId]);
+
+    const fetchInitialData = useCallback(async () => {
         setLoading(true);
         try {
             // 1. Get Username
@@ -61,32 +86,7 @@ export function UserStatistics({ language, embedded = false }) {
         } finally {
             setLoading(false);
         }
-    };
-
-    const fetchStats = async (seasonId) => {
-        try {
-            const { data, error } = await supabase
-                .from('user_stats')
-                .select('*')
-                .eq('user_id', userId)
-                .eq('season_id', seasonId)
-                .maybeSingle();
-
-            if (error) throw error;
-            setStats(data || {
-                confrontations_played: 0,
-                wins: 0,
-                losses: 0,
-                draws: 0,
-                season_points: 0,
-                pieces_eaten: 0,
-                wins_checkmate: 0, wins_time: 0, wins_resignation: 0,
-                losses_checkmate: 0, losses_time: 0, losses_resignation: 0
-            });
-        } catch (e) {
-            console.error('Error fetching stats:', e);
-        }
-    };
+    }, [userId, fetchStats]);
 
     if (loading) {
         return (

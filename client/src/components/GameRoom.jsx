@@ -17,7 +17,7 @@ const getPieceIcon = (piece, color) => {
     return icons[color]?.[piece.toLowerCase()] || '';
 };
 
-export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBoards, spectatorData, timer, boardResult, language = 'en', onLeave, myBoardId }) {
+export function GameRoom({ socket, roomId, roomName, role, pieceColor, gameState, teammateBoards, spectatorData, timer, boardResult, language = 'en', onLeave, myBoardId, settings, encuentroState }) {
     // 1. All Hooks at the top
     const [showVisualizer, setShowVisualizer] = useState(true);
     const [micOn, setMicOn] = useState(false);
@@ -25,6 +25,7 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
     const [inputText, setInputText] = useState('');
     const [drawOfferedByMe, setDrawOfferedByMe] = useState(false);
     const [drawOfferReceived, setDrawOfferReceived] = useState(false);
+    const [teammateViewModes, setTeammateViewModes] = useState({}); // boardId -> 'board' | 'heatmap'
 
     // Filter out my own board from the visualizer
     console.log('GameRoom Render:', { role, myBoardId, boards: teammateBoards?.length });
@@ -96,11 +97,12 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
 
     const isPlayer = role === 'white' || role === 'black';
 
-    const opponentCaptures = role === 'white' ? gameState?.captures?.b : gameState?.captures?.w;
-    const yourCaptures = role === 'white' ? gameState?.captures?.w : gameState?.captures?.b;
+    const effectivePieceColor = pieceColor || role;
+    const opponentCaptures = effectivePieceColor === 'white' ? gameState?.captures?.b : gameState?.captures?.w;
+    const yourCaptures = effectivePieceColor === 'white' ? gameState?.captures?.w : gameState?.captures?.b;
 
-    const opponentCaptureColor = role === 'white' ? 'w' : 'b';
-    const yourCaptureColor = role === 'white' ? 'b' : 'w';
+    const opponentCaptureColor = effectivePieceColor === 'white' ? 'w' : 'b';
+    const yourCaptureColor = effectivePieceColor === 'white' ? 'b' : 'w';
 
     const handleResign = () => {
         if (window.confirm(t.resignConfirm)) {
@@ -133,8 +135,11 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
         setInputText('');
     };
 
-    // 3. Early Return (Loading State)
-    if (!gameState && isPlayer) {
+    // 3. Derived State
+    const isBench = isPlayer && myBoardId === null && settings?.mode === 'encuentro';
+
+    // Early Return (Loading State)
+    if (!gameState && isPlayer && !isBench) {
         return (
             <div className="h-screen flex items-center justify-center bg-slate-900 text-white">
                 <div className="text-2xl font-bold animate-pulse">{t.initializingMatch}</div>
@@ -177,14 +182,25 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
                     </span>
                 </div>
 
-                {/* Timer */}
-                <div className="flex gap-8 bg-slate-900 px-6 py-1 rounded-full border border-slate-700">
-                    <div className={`text-xl font-mono font-bold ${timer.white < 60 ? 'text-red-500 animate-pulse' : 'text-blue-400'}`}>
-                        {formatTime(timer.white)}
-                    </div>
-                    <div className="text-slate-600">|</div>
-                    <div className={`text-xl font-mono font-bold ${timer.black < 60 ? 'text-red-500 animate-pulse' : 'text-red-400'}`}>
-                        {formatTime(timer.black)}
+                {/* Timer & Encuentro Scoreboard */}
+                <div className="flex gap-4 items-center">
+                    {settings?.mode === 'encuentro' && (
+                        <div className="flex items-center gap-3 bg-slate-900 px-4 py-1 rounded-full border border-slate-700 font-bold">
+                            <span className="text-white">R{encuentroState?.currentRound || 1}</span>
+                            <span className="text-slate-600">|</span>
+                            <span className="text-blue-400">{encuentroState?.matchPoints?.white || 0}</span>
+                            <span className="text-slate-500">-</span>
+                            <span className="text-red-400">{encuentroState?.matchPoints?.black || 0}</span>
+                        </div>
+                    )}
+                    <div className="flex gap-8 bg-slate-900 px-6 py-1 rounded-full border border-slate-700">
+                        <div className={`text-xl font-mono font-bold ${timer.white < 60 ? 'text-red-500 animate-pulse' : 'text-blue-400'}`}>
+                            {formatTime(timer.white)}
+                        </div>
+                        <div className="text-slate-600">|</div>
+                        <div className={`text-xl font-mono font-bold ${timer.black < 60 ? 'text-red-500 animate-pulse' : 'text-red-400'}`}>
+                            {formatTime(timer.black)}
+                        </div>
                     </div>
                 </div>
 
@@ -209,9 +225,13 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
                         </>
                     )}
                     <button
-                        onClick={() => setMicOn(!micOn)}
-                        className={`p-2 rounded-full transition-colors ${micOn ? 'bg-green-600' : 'bg-slate-700 hover:bg-slate-600'} ${!isPlayer ? 'hidden' : ''}`}
-                        title={t.voiceChat}
+                        onClick={() => {
+                            if (settings?.voiceChat === false || settings?.voiceChat === 'false') return;
+                            setMicOn(!micOn);
+                        }}
+                        disabled={settings?.voiceChat === false || settings?.voiceChat === 'false'}
+                        className={`p-2 rounded-full transition-colors ${settings?.voiceChat === false || settings?.voiceChat === 'false' ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : micOn ? 'bg-green-600' : 'bg-slate-700 hover:bg-slate-600'} ${!isPlayer ? 'hidden' : ''}`}
+                        title={settings?.voiceChat === false || settings?.voiceChat === 'false' ? t.voiceChatDisabledBySettings : t.voiceChat}
                     >
                         {micOn ? <Mic size={16} /> : <MicOff size={16} />}
                     </button>
@@ -220,13 +240,15 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
 
             {/* Main Content Area */}
             <div className="flex-1 flex overflow-hidden">
-                {role === 'spectator' ? (
+                {(role === 'spectator' || isBench) ? (
                     <SpectatorView
                         data={spectatorData}
                         socket={socket}
                         roomId={roomId}
                         t={t}
                         getPieceIcon={getPieceIcon}
+                        isBench={isBench}
+                        settings={settings}
                     />
                 ) : (
                     <>
@@ -252,14 +274,14 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
                                                 <div className="text-xs text-slate-400 uppercase font-bold mb-2">{t.teamStatus}</div>
                                                 <div className="flex justify-between items-center">
                                                     <span>{t.yourContribution}:</span>
-                                                    <span className={`font-mono ${(boardResult.winner === role || !boardResult.winner) ? 'text-green-400' : 'text-slate-500'}`}>
-                                                        +{(boardResult.winner === role || !boardResult.winner) ? boardResult.points : 0} {t.pts}
+                                                    <span className={`font-mono ${(boardResult.winner === (pieceColor || role) || !boardResult.winner) ? 'text-green-400' : 'text-slate-500'}`}>
+                                                        +{(boardResult.winner === (pieceColor || role) || !boardResult.winner) ? boardResult.points : 0} {t.pts}
                                                     </span>
                                                 </div>
                                             </div>
                                         </div>
                                     ) : (
-                                        <ChessBoard socket={socket} roomId={roomId} role={role} fen={gameState?.fen} />
+                                        <ChessBoard socket={socket} roomId={roomId} role={pieceColor || role} fen={gameState?.fen} />
                                     )}
                                 </div>
                             </div>
@@ -299,6 +321,9 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
                                                 const topColor = role === 'white' ? 'text-red-400' : 'text-blue-400';
                                                 const bottomColor = role === 'white' ? 'text-blue-400' : 'text-red-400';
 
+                                                const isBoardMode = settings?.boardMode === 'board';
+                                                const currentViewMode = teammateViewModes[board.boardId] || (isBoardMode ? 'board' : 'heatmap');
+
                                                 return (
                                                     <div key={board.id} className="h-full flex flex-col gap-1 shrink-0 min-w-[300px]">
                                                         {/* Top Name */}
@@ -333,11 +358,32 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
                                                                     </div>
                                                                 </div>
 
-                                                                {/* Heatmap */}
-                                                                <div className="flex-1 flex items-center justify-center min-h-0 relative">
+                                                                {/* Visualizer Content (Board or Heatmap) */}
+                                                                <div className="flex-1 flex items-center justify-center min-h-0 relative group">
                                                                     <div style={{ aspectRatio: '1/1', height: '100%', maxHeight: '100%', width: 'auto' }}>
-                                                                        <Heatmap data={board.heatmap} orientation={role} />
+                                                                        {currentViewMode === 'board' ? (
+                                                                            <div className="w-full h-full pointer-events-none">
+                                                                                <ChessBoard socket={socket} roomId={roomId} role="spectator" fen={board.fen} />
+                                                                            </div>
+                                                                        ) : (
+                                                                            <Heatmap data={board.heatmap} orientation={role} />
+                                                                        )}
                                                                     </div>
+                                                                    {isBoardMode && (
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setTeammateViewModes(prev => ({
+                                                                                    ...prev,
+                                                                                    [board.boardId]: currentViewMode === 'board' ? 'heatmap' : 'board'
+                                                                                }));
+                                                                            }}
+                                                                            className="absolute top-2 right-2 p-2 bg-slate-900/80 hover:bg-slate-800 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity border border-slate-700 shadow-xl z-20"
+                                                                            title={currentViewMode === 'board' ? t.toggleHeatmap : t.toggleBoard}
+                                                                        >
+                                                                            {currentViewMode === 'board' ? <Activity size={16} /> : <Eye size={16} />}
+                                                                        </button>
+                                                                    )}
                                                                 </div>
 
                                                                 {/* Bottom: Teammate Info (Captures + Shield + Flame) */}
@@ -444,7 +490,9 @@ export function GameRoom({ socket, roomId, roomName, role, gameState, teammateBo
     );
 }
 
-function SpectatorView({ data, socket, roomId, t, getPieceIcon }) {
+function SpectatorView({ data, socket, roomId, t, getPieceIcon, isBench, settings }) {
+    const [viewModes, setViewModes] = useState({});
+
     if (!data || data.length === 0) {
         return (
             <div className="flex-1 flex items-center justify-center text-slate-500">
@@ -470,9 +518,33 @@ function SpectatorView({ data, socket, roomId, t, getPieceIcon }) {
                     </div>
 
                     <div className="flex flex-col md:flex-row gap-12 h-[380px] justify-center items-center">
-                        {/* Left: Board */}
-                        <div className="w-[380px] h-[380px] bg-slate-900/50 rounded-xl p-2 shadow-inner border border-slate-700/50 flex-none">
-                            <ChessBoard socket={socket} roomId={roomId} role="spectator" fen={board.fen} />
+                        {/* Left: Board or Heatmap based on settings */}
+                        <div className="w-[380px] h-[380px] bg-slate-900/50 rounded-xl shadow-inner border border-slate-700/50 flex-none relative group overflow-hidden">
+                            {(!isBench || settings?.encuentroBenchView === 'board' || viewModes[board.boardId] === 'board') && viewModes[board.boardId] !== 'heatmap' ? (
+                                <div className="w-full h-full p-2 pointer-events-none">
+                                    <ChessBoard socket={socket} roomId={roomId} role="spectator" fen={board.fen} />
+                                </div>
+                            ) : (
+                                <div className="w-full h-full p-2">
+                                    <Heatmap data={board.heatmap} orientation="white" />
+                                </div>
+                            )}
+
+                            {isBench && settings?.encuentroBenchView === 'board' && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setViewModes(prev => ({
+                                            ...prev,
+                                            [board.boardId]: (prev[board.boardId] || 'board') === 'board' ? 'heatmap' : 'board'
+                                        }));
+                                    }}
+                                    className="absolute top-4 right-4 p-2 bg-slate-900/90 hover:bg-slate-800 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity border border-slate-700 shadow-xl z-20 pointer-events-auto"
+                                    title={viewModes[board.boardId] === 'heatmap' ? t.toggleBoard : t.toggleHeatmap}
+                                >
+                                    {viewModes[board.boardId] === 'heatmap' ? <Activity size={18} /> : <Activity size={18} />}
+                                </button>
+                            )}
                         </div>
 
                         {/* Right: Visualizer */}
@@ -502,9 +574,10 @@ function SpectatorView({ data, socket, roomId, t, getPieceIcon }) {
                                     </div>
                                 </div>
 
-                                {/* Heatmap */}
+                                {/* Visualizer Content */}
                                 <div className="flex-1 flex items-center justify-center min-h-0 relative">
                                     <div style={{ aspectRatio: '1/1', height: '100%', maxHeight: '100%', width: 'auto' }}>
+                                        {/* In Spectator view, we always show heatmap, but we could add toggle here too. Currently User requested it for teammate visualizer */}
                                         <Heatmap data={board.heatmap} orientation="white" />
                                     </div>
                                 </div>

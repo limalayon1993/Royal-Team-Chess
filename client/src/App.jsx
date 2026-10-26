@@ -14,7 +14,7 @@ import { supabase } from './supabaseClient';
 
 import { Globe, Wifi, Mail, Lock } from 'lucide-react';
 import { translations } from './translations';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { LandingPage } from './components/LandingPage';
 import { ContactModal } from './components/ContactModal';
 import { AuthModal } from './components/AuthModal';
@@ -47,7 +47,6 @@ function RoyalTeamChess({
   const [teammateBoards, setTeammateBoards] = useState([]);
   const [spectatorData, setSpectatorData] = useState([]);
   const [timer, setTimer] = useState({ white: 600, black: 600 });
-  const [roomIdInput, setRoomIdInput] = useState('');
   const [username, setUsername] = useState(user?.user_metadata?.username || '');
   const [isCreator, setIsCreator] = useState(false);
   const [boardResult, setBoardResult] = useState(null); // { winner, reason, points }

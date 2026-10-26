@@ -1,3 +1,11 @@
+const path = require('path');
+// 1. Cargar el .env propio de la carpeta server
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+// 2. Cargar el .env de la raíz como fallback / variables globales
+require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
+// 3. Fallback predeterminado por si se pasa por variable de entorno externa
+require('dotenv').config();
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -360,7 +368,31 @@ io.on('connection', (socket) => {
     socket.on('joinTeam', (data) => gameManager.joinTeam(socket, data));
     socket.on('leaveTeam', (data) => gameManager.leaveTeam(socket, data));
     socket.on('updateSettings', (data) => gameManager.updateSettings(socket, data));
-    socket.on('startGame', (data) => gameManager.startGame(socket, data));
+    socket.on('startGame', (data) => {
+        try {
+            gameManager.startGame(socket, data);
+        } catch (e) {
+            console.error('[Server] CRASH PREVENTED in startGame:', e);
+        }
+    });
+
+    // --- Encuentro Events ---
+    socket.on('vote_captain', (data) => {
+        try {
+            gameManager.voteCaptain(socket, data);
+        } catch (e) {
+            console.error('[Server] CRASH PREVENTED in vote_captain:', e);
+        }
+    });
+    socket.on('submit_lineup', (data) => {
+        try {
+            gameManager.submitLineup(socket, data);
+        } catch (e) {
+            console.error('[Server] CRASH PREVENTED in submit_lineup:', e);
+        }
+    });
+    // ------------------------
+
     socket.on('playerReady', (data) => gameManager.playerReady(socket, data));
     socket.on('makeMove', (data) => gameManager.makeMove(socket, data));
     socket.on('sendChat', (data) => gameManager.handleChat(socket, data));

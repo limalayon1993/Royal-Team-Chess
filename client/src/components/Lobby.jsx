@@ -105,9 +105,13 @@ export function Lobby({ socket, roomId, roomName, settings, players, ready, isCr
                         </button>
                         {/* Voice Chat Toggle */}
                         <button
-                            onClick={() => setMicOn(!micOn)}
-                            className={`p-2 rounded-full ${micOn ? 'bg-green-600' : 'bg-slate-700 hover:bg-slate-600'}`}
-                            title="Toggle Voice Chat"
+                            onClick={() => {
+                                if (settings?.voiceChat === false || settings?.voiceChat === 'false') return;
+                                setMicOn(!micOn);
+                            }}
+                            disabled={settings?.voiceChat === false || settings?.voiceChat === 'false'}
+                            className={`p-2 rounded-full ${settings?.voiceChat === false || settings?.voiceChat === 'false' ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : micOn ? 'bg-green-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+                            title={settings?.voiceChat === false || settings?.voiceChat === 'false' ? (t.voiceChatDisabledBySettings || "Voice chat disabled by settings") : "Toggle Voice Chat"}
                         >
                             {micOn ? <Mic size={20} /> : <MicOff size={20} />}
                         </button>
