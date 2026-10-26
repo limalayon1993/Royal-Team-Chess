@@ -281,6 +281,13 @@ app.get('/api/users/search', async (req, res) => {
 });
 
 
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
+});
+app.get('/', (req, res) => {
+    res.status(200).send('Royal Team Chess Backend & Socket Server is running.');
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
