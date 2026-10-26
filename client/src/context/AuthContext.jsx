@@ -66,7 +66,8 @@ export const AuthProvider = ({ children }) => {
                     .then(({ data: profile }) => {
                         if (!profile) {
                             console.warn('[AuthStateChange] Profile missing. Attempting auto-fix in background...');
-                            const serverUrl = 'http://localhost:3000'; // Force Localhost for fixes
+                            const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+                            const serverUrl = isLocal ? 'http://localhost:3000' : (import.meta.env.VITE_SERVER_URL || 'http://localhost:3000');
                             fetch(`${serverUrl}/api/admin/force-verify-email`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
@@ -100,7 +101,8 @@ export const AuthProvider = ({ children }) => {
         if (data?.user) {
             setTimeout(async () => {
                 // FORCE LOCALHOST for dev environment fixes
-                const serverUrl = 'http://localhost:3000';
+                const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+                const serverUrl = isLocal ? 'http://localhost:3000' : (import.meta.env.VITE_SERVER_URL || 'http://localhost:3000');
 
                 try {
                     console.log('[Auth] Auto-verifying email for:', email);

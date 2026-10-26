@@ -9,6 +9,8 @@ export function ChatModal({ isOpen, onClose, language, currentUser, initialChatU
     if (!isOpen) return null;
 
     const t = translations[language];
+    const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const serverUrl = isLocal ? 'http://localhost:3000' : (import.meta.env.VITE_SERVER_URL || 'http://localhost:3000');
 
     const [activeChat, setActiveChat] = useState(null);
     const [chats, setChats] = useState([]);
@@ -263,7 +265,7 @@ export function ChatModal({ isOpen, onClose, language, currentUser, initialChatU
             const targetUserId = requesterId || msg.sender_id;
 
             // 1. Call API to Accept
-            await fetch('http://localhost:3000/api/clubs/requests/respond', {
+            await fetch(`${serverUrl}/api/clubs/requests/respond`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -305,7 +307,7 @@ export function ChatModal({ isOpen, onClose, language, currentUser, initialChatU
             // Let's call API to be safe / consistent.
             const { requestId, clubId, userId: requesterId } = msg.metadata || {};
             if (requestId) {
-                await fetch('http://localhost:3000/api/clubs/requests/respond', {
+                await fetch(`${serverUrl}/api/clubs/requests/respond`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ requestId, status: 'declined', clubId, userId: requesterId || msg.sender_id })
