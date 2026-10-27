@@ -593,6 +593,12 @@ En la Fase 1.0-C se ejecutaron las operaciones finales de ingeniería DevOps y d
    - Ejecución de `npm run client:build` (`vite build`).
    - Resultado: Compilación impecable con **código de salida 0**, **0 errores**, transformando 1842 módulos en 2.52 segundos y empaquetando bundles optimizados en `client/dist/`.
 
+6. **Verificación en Vivo (Smoke Testing Productivo) y Ajustes de Ejecución:**
+   - Resuelta la circularidad de dependencias ESM en cliente eliminando particiones artificiales en `vite.config.js`.
+   - Auditados e importados el 100% de los iconos (`Sparkles` en `LandingPage.jsx` y `Eye` en `GameRoom.jsx`).
+   - Corregida la inicialización por TDZ (Temporal Dead Zone) reordenando las definiciones de funciones previas a los hooks `useEffect` en `UserStatistics.jsx`, `TrophyList.jsx`, `SocialPanel.jsx` y `RankingLeagues.jsx`.
+   - Validación real en producción completada con éxito navegando por perfil (`/profile/:userId`), lobby multijugador, autenticación GoTrue y WebSockets autoritativos sobre `royalteamchess.com`.
+
 ---
 
 ## 6. ESTADO DE CIERRE Y CERTIFICACIÓN OFICIAL DE LA VERSIÓN 1.0.0
