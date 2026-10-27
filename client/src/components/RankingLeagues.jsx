@@ -16,24 +16,6 @@ export function RankingLeagues({ language }) {
     const [seasonId, setSeasonId] = useState(''); // Default to current
     const [historySeasons, setHistorySeasons] = useState([]);
 
-    useEffect(() => {
-        // Calculate current season defaults
-        const now = new Date();
-        const currentId = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        setSeasonId(currentId);
-
-        // Generate history (last 6 months)
-        const hist = [];
-        for (let i = 0; i < 6; i++) {
-            const d = new Date(now);
-            d.setMonth(d.getMonth() - i);
-            hist.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-        }
-        setHistorySeasons(hist);
-
-        fetchStandings(currentId, 1);
-    }, []);
-
     const fetchStandings = async (targetSeason, targetDiv) => {
         setLoading(true);
         try {
@@ -72,6 +54,25 @@ export function RankingLeagues({ language }) {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        // Calculate current season defaults
+        const now = new Date();
+        const currentId = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        setSeasonId(currentId);
+
+        // Generate history (last 6 months)
+        const hist = [];
+        for (let i = 0; i < 6; i++) {
+            const d = new Date(now);
+            d.setMonth(d.getMonth() - i);
+            hist.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+        }
+        setHistorySeasons(hist);
+
+        fetchStandings(currentId, 1);
+    }, []);
+
 
     const handleSeasonChange = (e) => {
         fetchStandings(e.target.value, division);

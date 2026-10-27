@@ -9,12 +9,6 @@ const TrophyList = ({ entityId, type, title, language = 'en' }) => {
     const [selectedTrophy, setSelectedTrophy] = useState(null);
     const t = translations[language];
 
-    useEffect(() => {
-        if (entityId && type) {
-            fetchTrophies();
-        }
-    }, [entityId, type]);
-
     const fetchTrophies = async () => {
         setLoading(true);
         try {
@@ -68,6 +62,13 @@ const TrophyList = ({ entityId, type, title, language = 'en' }) => {
         // Convert to array
         setTrophies(Object.values(groups));
     };
+
+    useEffect(() => {
+        if (entityId && type) {
+            fetchTrophies();
+        }
+    }, [entityId, type]);
+
 
     if (loading) return <div className="trophy-loading">{t.trophyLoading}</div>;
     if (trophies.length === 0) return <div className="trophy-empty">{t.trophyEmpty}</div>;

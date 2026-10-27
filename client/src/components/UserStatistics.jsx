@@ -15,16 +15,6 @@ export function UserStatistics({ language, embedded = false }) {
     const [loading, setLoading] = useState(true);
     const [username, setUsername] = useState('');
 
-    useEffect(() => {
-        fetchInitialData();
-    }, [fetchInitialData]);
-
-    useEffect(() => {
-        if (selectedSeason) {
-            fetchStats(selectedSeason);
-        }
-    }, [selectedSeason, fetchStats]);
-
     const fetchStats = useCallback(async (seasonId) => {
         try {
             const { data, error } = await supabase
@@ -88,6 +78,17 @@ export function UserStatistics({ language, embedded = false }) {
         }
     }, [userId, fetchStats]);
 
+    useEffect(() => {
+        fetchInitialData();
+    }, [fetchInitialData]);
+
+    useEffect(() => {
+        if (selectedSeason) {
+            fetchStats(selectedSeason);
+        }
+    }, [selectedSeason, fetchStats]);
+
+
     if (loading) {
         return (
             <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -96,7 +97,7 @@ export function UserStatistics({ language, embedded = false }) {
         );
     }
 
-    const winRate = stats.confrontations_played > 0
+    const winRate = (stats?.confrontations_played || 0) > 0
         ? Math.round((stats.wins / stats.confrontations_played) * 100)
         : 0;
 

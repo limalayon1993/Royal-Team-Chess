@@ -14,59 +14,6 @@ export function SocialPanel({ language, onOpenChat, onInvite, socket }) {
     const [userStatuses, setUserStatuses] = useState({}); // userId -> status
     const [inviteStatus, setInviteStatus] = useState({}); // userId -> 'sent' | null
 
-    useEffect(() => {
-        fetchUsers();
-
-        const handleFriendUpdate = () => fetchUsers();
-        window.addEventListener('friend-updated', handleFriendUpdate);
-
-        // Listen for real-time status updates from server
-        if (socket) {
-
-
-            const handleStatusUpdate = ({ userId, status }) => {
-                console.log(`[SocialPanel] 🟢 Received Status Update for ${userId}: ${status}`);
-                setUserStatuses(prev => ({
-                    ...prev,
-                    [userId]: status
-                }));
-            };
-
-            const handleInitialStatuses = (statuses) => {
-                console.log('[SocialPanel] 📥 Received Initial Statuses:', Object.keys(statuses).length, statuses);
-                setUserStatuses(prev => ({
-                    ...prev,
-                    ...statuses
-                }));
-            };
-
-            socket.on('userStatusUpdate', handleStatusUpdate);
-            socket.on('initialUserStatuses', handleInitialStatuses); // Listen for snapshot
-
-            // Handle Reconnection
-            const handleReconnect = () => {
-                console.log('[SocialPanel] 🔄 Socket Reconnected. Requesting fresh statuses...');
-                socket.emit('requestUserStatuses');
-            };
-            socket.on('connect', handleReconnect);
-
-            // Request fresh statuses on mount (in case we missed the register event or re-mounted)
-            console.log('[SocialPanel] Mounted. Requesting User Statuses...');
-            socket.emit('requestUserStatuses');
-
-            return () => {
-                window.removeEventListener('friend-updated', handleFriendUpdate);
-                socket.off('userStatusUpdate', handleStatusUpdate);
-                socket.off('initialUserStatuses', handleInitialStatuses);
-                socket.off('connect', handleReconnect);
-            };
-        }
-
-        return () => {
-            window.removeEventListener('friend-updated', handleFriendUpdate);
-        };
-    }, [activeTab, socket, currentUser]);
-
     const fetchUsers = async () => {
         if (!currentUser) {
             console.log('[SocialPanel] No currentUser, skipping fetch');
@@ -144,6 +91,60 @@ export function SocialPanel({ language, onOpenChat, onInvite, socket }) {
         }
         setLoading(false);
     };
+
+    useEffect(() => {
+        fetchUsers();
+
+        const handleFriendUpdate = () => fetchUsers();
+        window.addEventListener('friend-updated', handleFriendUpdate);
+
+        // Listen for real-time status updates from server
+        if (socket) {
+
+
+            const handleStatusUpdate = ({ userId, status }) => {
+                console.log(`[SocialPanel] 🟢 Received Status Update for ${userId}: ${status}`);
+                setUserStatuses(prev => ({
+                    ...prev,
+                    [userId]: status
+                }));
+            };
+
+            const handleInitialStatuses = (statuses) => {
+                console.log('[SocialPanel] 📥 Received Initial Statuses:', Object.keys(statuses).length, statuses);
+                setUserStatuses(prev => ({
+                    ...prev,
+                    ...statuses
+                }));
+            };
+
+            socket.on('userStatusUpdate', handleStatusUpdate);
+            socket.on('initialUserStatuses', handleInitialStatuses); // Listen for snapshot
+
+            // Handle Reconnection
+            const handleReconnect = () => {
+                console.log('[SocialPanel] 🔄 Socket Reconnected. Requesting fresh statuses...');
+                socket.emit('requestUserStatuses');
+            };
+            socket.on('connect', handleReconnect);
+
+            // Request fresh statuses on mount (in case we missed the register event or re-mounted)
+            console.log('[SocialPanel] Mounted. Requesting User Statuses...');
+            socket.emit('requestUserStatuses');
+
+            return () => {
+                window.removeEventListener('friend-updated', handleFriendUpdate);
+                socket.off('userStatusUpdate', handleStatusUpdate);
+                socket.off('initialUserStatuses', handleInitialStatuses);
+                socket.off('connect', handleReconnect);
+            };
+        }
+
+        return () => {
+            window.removeEventListener('friend-updated', handleFriendUpdate);
+        };
+    }, [activeTab, socket, currentUser]);
+
 
     return (
         <div className="hidden lg:flex flex-col w-80 h-[600px] bg-slate-900/50 backdrop-blur-md rounded-3xl border border-slate-700/50 overflow-hidden sticky top-4">
