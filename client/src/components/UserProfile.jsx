@@ -1,31 +1,42 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { User, Shield, Trophy, MessageSquare, ArrowLeft, Activity, Users, UserPlus } from 'lucide-react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { User, Shield, Trophy, MessageSquare, ArrowLeft, Activity, Users, UserPlus, Crown, Zap, Sparkles, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { translations } from '../translations';
 import { EditProfileModal } from './EditProfileModal';
 import { FriendRequestModal } from './FriendRequestModal';
 import TrophyList from './TrophyList';
-
 import { UserStatistics } from './UserStatistics';
+import { PricingModal } from './PricingModal';
 
 export function UserProfile({ language }) {
     const { userId } = useParams();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { user: currentUser } = useAuth();
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showRequestModal, setShowRequestModal] = useState(false);
+    const [showPricingModal, setShowPricingModal] = useState(false);
     const [isFriend, setIsFriend] = useState(false);
+    const [checkoutNotification, setCheckoutNotification] = useState(null);
 
-    const t = translations[language];
+    const t = translations[language] || translations.es;
     const isOwnProfile = currentUser?.id === userId;
 
+    // Detectar retorno exitoso de checkout desde Stripe / Mock
     useEffect(() => {
-        fetchProfile();
-    }, [fetchProfile]);
+        const checkoutStatus = searchParams.get('checkout_status');
+        if (checkoutStatus === 'success') {
+            setCheckoutNotification(t.checkoutSuccess || '¡Suscripción actualizada con éxito!');
+            const timer = setTimeout(() => {
+                setCheckoutNotification(null);
+            }, 6000);
+            return () => clearTimeout(timer);
+        }
+    }, [searchParams, t]);
 
     const handleRemoveFriend = async () => {
         if (!confirm(t.removeFriend + '?')) return;
@@ -61,7 +72,7 @@ export function UserProfile({ language }) {
                 setIsFriend(!!friendData);
             }
 
-            // 1. Fetch Profile Data (including new columns if they exist)
+            // 1. Fetch Profile Data (including new columns like tier)
             const { data: profileData, error: profileError } = await supabase
                 .from('profiles')
                 .select('*')
@@ -96,6 +107,10 @@ export function UserProfile({ language }) {
         }
     }, [currentUser, userId]);
 
+    useEffect(() => {
+        fetchProfile();
+    }, [fetchProfile]);
+
     if (loading) {
         return (
             <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -113,6 +128,45 @@ export function UserProfile({ language }) {
         );
     }
 
+    const currentTier = (profile.tier || 'free').toLowerCase();
+
+    // Renderizado de la insignia táctica de suscripción (Pilar 6)
+    const renderTierBadge = () => {
+        switch (currentTier) {
+            case 'pro':
+                return (
+                    <span 
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-gradient-to-r from-amber-500/20 via-emerald-500/20 to-teal-500/20 text-emerald-300 border border-emerald-400/60 shadow-lg shadow-emerald-500/20"
+                        title={language === 'es' ? 'Nivel 3: Suscripción Profesional' : 'Tier 3: Professional Subscription'}
+                    >
+                        <Crown size={14} className="text-amber-400" fill="currentColor" />
+                        <span>{t.tierBadgePro || 'PRO'}</span>
+                    </span>
+                );
+            case 'basic':
+                return (
+                    <span 
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-cyan-950/70 text-cyan-300 border border-cyan-500/50 shadow-sm shadow-cyan-900/30"
+                        title={language === 'es' ? 'Nivel 2: Suscripción Básica' : 'Tier 2: Basic Subscription'}
+                    >
+                        <Zap size={14} className="text-cyan-400" />
+                        <span>{t.tierBadgeBasic || 'BASIC'}</span>
+                    </span>
+                );
+            case 'free':
+            default:
+                return (
+                    <span 
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-700/60 text-slate-300 border border-slate-600/70"
+                        title={language === 'es' ? 'Nivel 1: Free-to-Play' : 'Tier 1: Free-to-Play'}
+                    >
+                        <Shield size={13} className="text-slate-400" />
+                        <span>{t.tierBadgeFree || 'FREE'}</span>
+                    </span>
+                );
+        }
+    };
+
     return (
         <div className="min-h-screen bg-slate-900 text-white font-sans overflow-y-auto pb-20">
             {/* Header / Nav */}
@@ -126,6 +180,22 @@ export function UserProfile({ language }) {
             </div>
 
             <div className="max-w-4xl mx-auto px-6 mt-4">
+                {/* Notificación de Checkout Exitoso */}
+                {checkoutNotification && (
+                    <div className="mb-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/50 text-emerald-300 flex items-center justify-between gap-3 shadow-xl animate-fade-in">
+                        <div className="flex items-center gap-3">
+                            <CheckCircle2 size={22} className="text-emerald-400 shrink-0" />
+                            <span className="font-bold text-sm md:text-base">{checkoutNotification}</span>
+                        </div>
+                        <button 
+                            onClick={() => setCheckoutNotification(null)}
+                            className="text-slate-400 hover:text-white text-xs uppercase font-bold"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                )}
+
                 {/* Profile Header Card */}
                 <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700 rounded-3xl p-8 mb-8 shadow-2xl relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
@@ -146,9 +216,25 @@ export function UserProfile({ language }) {
 
                         {/* Info */}
                         <div className="flex-1 text-center md:text-left">
-                            <h1 className="text-4xl md:text-5xl font-black text-white mb-2 tracking-tight">
-                                {profile.username}
-                            </h1>
+                            {/* Nombre de Usuario e Insignia de Nivel */}
+                            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-2">
+                                <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">
+                                    {profile.username}
+                                </h1>
+                                {renderTierBadge()}
+
+                                {isOwnProfile && (
+                                    <button
+                                        onClick={() => setShowPricingModal(true)}
+                                        className="text-xs font-bold px-3 py-1 rounded-full bg-slate-800/90 hover:bg-slate-750 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/60 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm hover:scale-105"
+                                        title={currentTier === 'pro' ? (t.managePlan || 'Gestionar Plan') : (t.upgradePlan || 'Mejorar Plan')}
+                                    >
+                                        <Sparkles size={13} />
+                                        <span>{currentTier === 'pro' ? (t.managePlan || 'Gestionar Plan') : (t.upgradePlan || 'Mejorar Plan')}</span>
+                                    </button>
+                                )}
+                            </div>
+
                             <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mb-6">
                                 {profile.club && (
                                     <button
@@ -171,10 +257,6 @@ export function UserProfile({ language }) {
                             </div>
 
                             <div className="flex gap-4 justify-center md:justify-start flex-wrap">
-                                {/* Stats Button (Always Visible) */}
-                                {
-                                    /* Stats Button Removed (Auto-Embedded) */
-                                }
                                 {/* Conditional Button Logic */}
                                 {isOwnProfile ? (
                                     <>
@@ -183,6 +265,27 @@ export function UserProfile({ language }) {
                                             className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold transition-all hover:scale-105 border border-slate-600 flex items-center gap-2 cursor-pointer"
                                         >
                                             {t.editProfile}
+                                        </button>
+
+                                        <button
+                                            onClick={() => setShowPricingModal(true)}
+                                            className={`px-6 py-3 rounded-xl font-bold transition-all hover:scale-105 flex items-center gap-2 cursor-pointer border ${
+                                                currentTier === 'pro'
+                                                    ? 'bg-slate-800 hover:bg-slate-750 text-emerald-300 border-emerald-500/40 shadow-lg shadow-emerald-950/30'
+                                                    : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-emerald-400/40 shadow-lg shadow-emerald-900/40'
+                                            }`}
+                                        >
+                                            {currentTier === 'pro' ? (
+                                                <>
+                                                    <Crown size={18} fill="currentColor" />
+                                                    <span>{t.manageSubscription || 'Gestionar Suscripción'}</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Sparkles size={18} />
+                                                    <span>{t.upgradePlan || 'Mejorar Plan'}</span>
+                                                </>
+                                            )}
                                         </button>
                                     </>
                                 ) : (
@@ -241,6 +344,16 @@ export function UserProfile({ language }) {
                 targetUser={profile}
                 language={language}
             />
-        </div >
+
+            <PricingModal
+                isOpen={showPricingModal}
+                onClose={() => {
+                    setShowPricingModal(false);
+                    fetchProfile();
+                }}
+                language={language}
+                currentTier={currentTier}
+            />
+        </div>
     );
 }

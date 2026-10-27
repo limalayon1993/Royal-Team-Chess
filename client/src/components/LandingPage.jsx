@@ -9,6 +9,7 @@ import { AuthModal } from './AuthModal';
 import { SocialPanel } from './SocialPanel';
 import { ChatModal } from './ChatModal';
 import { useAuth } from '../context/AuthContext';
+import { PricingModal } from './PricingModal';
 
 export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom, onJoinRoom, onRefreshRooms, username, user, initialView = 'landing', socket, party, onPartyCreate, onPartyInvite, onPartyJoin, onPartyLeave, onOpenParty, onJoinParty, onAcceptProposal }) {
     console.log('[Landing] Render. onAcceptProposal present?', !!onAcceptProposal);
@@ -29,6 +30,32 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
     const [authView, setAuthView] = useState('login');
     const [menuView, setMenuView] = useState(initialView);
     const [unreadCount, setUnreadCount] = useState(0); // Added missing state
+    const [currentUserTier, setCurrentUserTier] = useState('free');
+    const [showPricingModal, setShowPricingModal] = useState(false);
+
+    useEffect(() => {
+        const fetchTier = async () => {
+            if (!currentUser) {
+                setCurrentUserTier('free');
+                return;
+            }
+            try {
+                const { data } = await supabase
+                    .from('profiles')
+                    .select('tier')
+                    .eq('id', currentUser.id)
+                    .single();
+                if (data?.tier) {
+                    setCurrentUserTier(data.tier.toLowerCase());
+                } else {
+                    setCurrentUserTier('free');
+                }
+            } catch (err) {
+                setCurrentUserTier('free');
+            }
+        };
+        fetchTier();
+    }, [currentUser]);
 
     useEffect(() => {
         if (!currentUser && menuView === 'main') {
@@ -344,6 +371,55 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
     };
 
     // ... Render Functions ...
+        // ========================================================
+    // PILAR 6: ESPACIO PUBLICITARIO PASIVO (SOLO TIER FREE)
+    // ========================================================
+    const renderPassiveAdBanner = () => {
+        if (currentUserTier !== 'free') return null;
+
+        return (
+            <div className="w-full max-w-5xl mx-auto px-6 my-6 animate-fade-in relative z-20">
+                <div className="relative rounded-2xl bg-gradient-to-r from-slate-900/90 via-slate-850/80 to-slate-900/90 border border-slate-700/50 p-4 md:p-5 backdrop-blur-xl shadow-xl overflow-hidden group">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <span className="text-[10px] md:text-xs font-mono uppercase tracking-widest text-slate-400 bg-slate-950/80 px-3 py-1 rounded-full border border-slate-800">
+                            {t.passiveAdNotice || '[Espacio Publicitario Pasivo - Sin Anuncios en Básica y Pro]'}
+                        </span>
+                        <button
+                            onClick={() => setShowPricingModal(true)}
+                            className="text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-1.5 cursor-pointer bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20 hover:border-emerald-500/40"
+                        >
+                            <Sparkles size={13} />
+                            <span>{t.removeAdsBtn || 'Quitar Anuncios'}</span>
+                        </button>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-3.5 text-center sm:text-left">
+                            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600/20 to-purple-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0 shadow-inner">
+                                <Crown size={22} />
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-bold text-white tracking-tight">
+                                    {t.adBannerTitle || 'Equipamiento Táctico RTC Pro'}
+                                </h4>
+                                <p className="text-xs text-slate-400 max-w-xl font-medium mt-0.5">
+                                    {t.adBannerDesc || 'Apoya nuestra infraestructura multijugador. Pasa a Básica (5€/mes) para eliminar anuncios y disputar trofeos oficiales.'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => setShowPricingModal(true)}
+                            className="shrink-0 px-4 py-2 rounded-xl text-xs font-black bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-600 transition-all hover:scale-105 cursor-pointer shadow-md"
+                        >
+                            {language === 'es' ? 'Ver Planes (Desde 5€)' : 'View Plans (From 5€)'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     const renderMainMenu = () => (
         <div className="max-w-6xl mx-auto w-full px-6 animate-fade-in flex flex-col items-center min-h-[600px] pt-12">
 
@@ -1646,6 +1722,8 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                 </div>
             </div>
 
+            {renderPassiveAdBanner()}
+
             {/* Footer */}
             <footer className="py-8 border-t border-slate-800 text-center text-slate-500 text-sm bg-slate-950 relative z-10">
                 <div className="flex items-center justify-center gap-2 mb-4 opacity-50">
@@ -1677,6 +1755,15 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                 <p>&copy; 2026 Royal Team Chess. All rights reserved.</p>
             </footer>
             {/* Full Screen Searching Overlay */}
+            {/* Modal de Precios y Tiers */}
+            <PricingModal
+                isOpen={showPricingModal}
+                onClose={() => setShowPricingModal(false)}
+                language={language}
+                currentTier={currentUserTier}
+                onOpenAuth={openAuth}
+            />
+
             {searchStatus === 'searching' && (
                 <div className="fixed inset-0 bg-slate-950/95 z-[100] flex flex-col items-center justify-center animate-fade-in backdrop-blur-sm">
                     <div className="w-24 h-24 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-8 shadow-lg shadow-blue-500/20"></div>

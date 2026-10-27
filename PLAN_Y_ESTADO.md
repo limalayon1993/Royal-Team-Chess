@@ -95,6 +95,7 @@ royal-team-chess/
 │           ├── LandingPage.jsx       # Menú principal y navegación (Landing, Main, Play, Create, Quick)
 │           ├── Lobby.jsx             # Sala de espera en modo Estándar: elección de bando y toggle ready
 │           ├── PartyModal.jsx        # Gestión de grupos de 1 a 4 integrantes y chat de party
+│           ├── PricingModal.jsx      # Modal comparativo de 3 columnas para planes de suscripción y Stripe Checkout
 │           ├── RankingLeagues.jsx    # Clasificación oficial por divisiones (1 a 6) e histórico
 │           ├── SocialPanel.jsx       # Barra lateral derecha con amigos y compañeros en línea
 │           ├── TrophyList.css        # Hoja de estilos de la vitrina digital de trofeos
