@@ -12,7 +12,12 @@
 ALTER TABLE public.profiles 
 ADD COLUMN IF NOT EXISTS tier TEXT DEFAULT 'free' CHECK (tier IN ('free', 'basic', 'pro'));
 
--- 2. Crear tabla autoritativa de suscripciones ('subscriptions')
+-- 2. Asegurar que usuarios existentes tengan asignado el tier 'free' por defecto
+UPDATE public.profiles 
+SET tier = 'free' 
+WHERE tier IS NULL;
+
+-- 3. Crear tabla autoritativa de suscripciones ('subscriptions')
 CREATE TABLE IF NOT EXISTS public.subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -27,15 +32,16 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
     CONSTRAINT unique_user_subscription UNIQUE (user_id)
 );
 
--- 3. Habilitar Row Level Security (RLS) en la tabla de suscripciones
+-- 4. Habilitar Row Level Security (RLS) en la tabla de suscripciones
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 
--- 4. Política RLS: Los usuarios autenticados pueden consultar su propio registro
+-- 5. Política RLS Idempotente: Los usuarios autenticados pueden consultar su propia suscripción
+DROP POLICY IF EXISTS "Users can read own subscription" ON public.subscriptions;
 CREATE POLICY "Users can read own subscription"
 ON public.subscriptions FOR SELECT
 USING (auth.uid() = user_id);
 
--- 5. Índices de rendimiento para búsquedas por cliente de Stripe y por tier
+-- 6. Índices de rendimiento para búsquedas rápidas por cliente de Stripe y por tier
 CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_customer 
 ON public.subscriptions(stripe_customer_id);
 
