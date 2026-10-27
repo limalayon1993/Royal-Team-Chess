@@ -4,7 +4,7 @@ import { Heatmap } from './Visualizer/Heatmap';
 import { Thermometer } from './Visualizer/Thermometer';
 import { Shield } from './Visualizer/Shield';
 import { Flame } from './Visualizer/Flame';
-import { MessageSquare, Activity, Mic, MicOff, ChevronDown, ChevronUp, Flag, Send, Clock, Users, Handshake, LogOut, X, Check } from 'lucide-react';
+import { MessageSquare, Activity, Mic, MicOff, ChevronDown, ChevronUp, Flag, Send, Clock, Users, Handshake, LogOut, X, Check, Eye } from 'lucide-react';
 import { translations } from '../translations';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import { AudioQueue } from '../utils/AudioQueue';

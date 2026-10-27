@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { Crown, Users, Activity, Shield, Flame, Thermometer, Play, Globe, MessageSquare, Trophy, Target, Zap, Mail, LogOut, User, UserPlus, Search, Lock, Unlock, Plus, RefreshCw, Server, Clock, Eye, UserCircle, Users2 } from 'lucide-react';
+import { Crown, Users, Activity, Shield, Flame, Thermometer, Play, Globe, MessageSquare, Trophy, Target, Zap, Mail, LogOut, User, UserPlus, Search, Lock, Unlock, Plus, RefreshCw, Server, Clock, Eye, UserCircle, Users2, Sparkles } from 'lucide-react';
 import { translations } from '../translations';
 import { ContactModal } from './ContactModal';
 import { LegalModal } from './LegalModal';
