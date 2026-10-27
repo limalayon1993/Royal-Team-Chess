@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 console.log('🚀 APP VERSION: DEBUG_Refactor_v5_' + Date.now());
 import io from 'socket.io-client';
 import { Lobby } from './components/Lobby';
+import { EncuentroLobby } from './components/EncuentroLobby';
 import { GameRoom } from './components/GameRoom';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { UserProfile } from './components/UserProfile';
@@ -20,6 +21,7 @@ import { ContactModal } from './components/ContactModal';
 import { AuthModal } from './components/AuthModal';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { PartyModal } from './components/PartyModal';
+import { LegalPage } from './components/LegalPage';
 
 function RoyalTeamChess({
   socket, language, toggleLanguage,
@@ -252,6 +254,10 @@ function RoyalTeamChess({
       setTimer(newTimer);
     });
 
+    socket.on('encuentroUpdate', (state) => {
+      setRoomData(prev => ({ ...prev, encuentroState: state }));
+    });
+
     socket.on('error', (msg) => alert(msg));
 
     return () => {
@@ -266,6 +272,7 @@ function RoyalTeamChess({
       socket.off('boardGameOver');
       socket.off('matchOver');
       socket.off('timerUpdate');
+      socket.off('encuentroUpdate');
       socket.off('error');
     };
   }, [socket]);
@@ -540,6 +547,26 @@ function RoyalTeamChess({
   }
 
   if (!roomData.active) {
+    if (roomData.settings?.mode === 'encuentro') {
+      return (
+        <ErrorBoundary>
+          <EncuentroLobby
+            socket={socket}
+            roomId={room}
+            roomName={roomData.name}
+            settings={roomData.settings}
+            players={roomData.players}
+            isCreator={isCreator}
+            language={language}
+            onLeave={resetGame}
+            usernames={roomData.usernames}
+            elos={roomData.elos}
+            encuentroState={roomData.encuentroState}
+            startingCountdown={startingCountdown}
+          />
+        </ErrorBoundary>
+      );
+    }
     return (
       <>
         <Lobby
@@ -576,6 +603,8 @@ function RoyalTeamChess({
           language={language}
           onLeave={resetGame}
           myBoardId={myBoardId}
+          settings={roomData.settings}
+          encuentroState={roomData.encuentroState}
         />
       </ErrorBoundary>
     </>
@@ -893,6 +922,18 @@ function AppContent({
           element={
             <ClubProfile language={language} socket={socket} />
           }
+        />
+        <Route
+          path="/terms"
+          element={<LegalPage initialTab="terms" language={language} />}
+        />
+        <Route
+          path="/privacy"
+          element={<LegalPage initialTab="privacy" language={language} />}
+        />
+        <Route
+          path="/legal"
+          element={<LegalPage initialTab="notice" language={language} />}
         />
         <Route path="*" element={
           <RoyalTeamChess

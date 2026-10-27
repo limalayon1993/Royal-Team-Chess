@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import { Crown, Users, Activity, Shield, Flame, Thermometer, Play, Globe, MessageSquare, Trophy, Target, Zap, Mail, LogOut, User, UserPlus, Search, Lock, Unlock, Plus, RefreshCw, Server, Clock, Eye, UserCircle, Users2 } from 'lucide-react';
 import { translations } from '../translations';
 import { ContactModal } from './ContactModal';
+import { LegalModal } from './LegalModal';
 import { AuthModal } from './AuthModal';
 import { SocialPanel } from './SocialPanel';
 import { ChatModal } from './ChatModal';
@@ -20,6 +21,8 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
     const currentUser = user || contextUser;
 
     const [showContact, setShowContact] = useState(false);
+    const [showLegalModal, setShowLegalModal] = useState(false);
+    const [legalTab, setLegalTab] = useState('terms');
     const [showChat, setShowChat] = useState(false);
     const [chatTargetUser, setChatTargetUser] = useState(null);
     const [showAuth, setShowAuth] = useState(false);
@@ -1326,6 +1329,13 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
     return (
         <div className="min-h-screen bg-slate-900 text-white overflow-y-auto font-sans">
             {showContact && <ContactModal onClose={() => setShowContact(false)} language={language} />}
+            {showLegalModal && (
+                <LegalModal
+                    isOpen={showLegalModal}
+                    onClose={() => setShowLegalModal(false)}
+                    initialTab={legalTab}
+                />
+            )}
             {showAuth && (
                 <AuthModal
                     onClose={() => setShowAuth(false)}
@@ -1641,6 +1651,28 @@ export function LandingPage({ language, toggleLanguage, roomsList, onCreateRoom,
                 <div className="flex items-center justify-center gap-2 mb-4 opacity-50">
                     <Crown size={20} />
                     <span className="font-bold">Royal Team Chess</span>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-slate-400 mb-4 px-4">
+                    <button
+                        onClick={() => { setLegalTab('terms'); setShowLegalModal(true); }}
+                        className="hover:text-blue-400 transition-colors underline-offset-4 hover:underline cursor-pointer"
+                    >
+                        {language === 'es' ? 'Términos y Condiciones' : 'Terms & Conditions'}
+                    </button>
+                    <span className="text-slate-700 hidden sm:inline">•</span>
+                    <button
+                        onClick={() => { setLegalTab('privacy'); setShowLegalModal(true); }}
+                        className="hover:text-blue-400 transition-colors underline-offset-4 hover:underline cursor-pointer"
+                    >
+                        {language === 'es' ? 'Privacidad y Cookies' : 'Privacy & Cookies'}
+                    </button>
+                    <span className="text-slate-700 hidden sm:inline">•</span>
+                    <button
+                        onClick={() => { setLegalTab('notice'); setShowLegalModal(true); }}
+                        className="hover:text-blue-400 transition-colors underline-offset-4 hover:underline cursor-pointer"
+                    >
+                        {language === 'es' ? 'Aviso Legal & Estado v1.0' : 'Legal Notice & Status v1.0'}
+                    </button>
                 </div>
                 <p>&copy; 2026 Royal Team Chess. All rights reserved.</p>
             </footer>
