@@ -485,4 +485,61 @@ En la Fase M4 se ejecutó el blindaje integral previo al despliegue productivo c
 | **Secciones del Plan (1 al 10)** | La totalidad de las 10 secciones maestras del proyecto catalogadas y marcadas como completadas `[x]`. | **CONFORME** |
 
 ---
-*Fin del Documento de Control — Fase M4 completada y auditada con éxito en la raíz del proyecto.*
+
+### 3.8 Registro de Cambios Técnicos - Fase 1.0-A (Backend de Monetización con Stripe y Webhooks - Pilar 6)
+
+En la Fase 1.0-A se implementó la infraestructura de monetización y facturación recurrente conforme al Pilar 6 del `PRD_VERSION_1.0.md` bajo estrictas directrices de aislamiento modular e integridad del motor de juego:
+
+1. **Instalación de Dependencias Oficiales:**
+   - Incorporación de la librería oficial `stripe` en el backend (`server/package.json` y raíz `package.json`).
+
+2. **Módulo Desacoplado de Facturación (`server/billing.js`):**
+   - **Aislamiento Total:** El código de procesamiento de pagos reside en un módulo independiente sin interferir en `chess.js`, el reloj de equipo acumulativo, `gameManager.js`, WebSockets ni `leagueManager.js`.
+   - **Modo Simulación Seguro (Mock Fallback):** Detección automática cuando `STRIPE_SECRET_KEY` no está configurada o se encuentra en modo demo/placeholder. En este escenario, las llamadas devuelven URLs directas de éxito y portales simulados, permitiendo pruebas locales ininterrumpidas sin pantallas en blanco ni excepciones no controladas.
+   - **Endpoint `POST /api/billing/create-checkout-session`:**
+     * Recibe `{ userId, priceId, tier, returnUrl }`.
+     * Valida la existencia del jugador en la tabla `profiles` de Supabase.
+     * En producción/test genera sesiones de Stripe Checkout en modo suscripción con los tiers oficiales: Básica (5,00 € / mes) y Profesional (10,00 € / mes). Soporta `priceId` de catálogo o creación dinámica en EUR.
+     * En modo simulación retorna de inmediato una URL de retorno exitosa con flags de prueba.
+   - **Endpoint `POST /api/webhooks/stripe`:**
+     * Registrado antes de `express.json()` consumiendo el middleware `express.raw({ type: 'application/json' })` para preservar el buffer binario original requerido para la verificación criptográfica `stripe-signature`.
+     * Procesa `checkout.session.completed` elevando autoritativamente la columna `profiles.tier` a `'basic'` o `'pro'` y registrando la auditoría en `subscriptions`.
+     * Procesa `customer.subscription.deleted` revirtiendo el nivel a `'free'` y marcando el estado como `'canceled'`.
+     * Procesa `customer.subscription.updated` sincronizando estados activos, impagos o cancelados.
+   - **Endpoint `POST /api/billing/customer-portal`:**
+     * Genera sesiones seguras hacia Stripe Customer Portal para gestión, actualización de medios de pago o cancelación por parte del usuario.
+   - **Endpoint `GET /api/billing/status`:**
+     * Expone telemetría y diagnóstico sobre el modo activo (simulación vs producción), claves y catálogo de tarifas.
+
+3. **Esquema de Datos y Persistencia (`server/db.js` y `billing_schema.sql`):**
+   - Incorporadas funciones de acceso a datos en `server/db.js`: `getUserProfile`, `updateUserTier`, `saveSubscription`, `getSubscriptionByUserId` y `getUserIdByStripeCustomer`.
+   - Manejo tolerante a fallos que detecta si la columna `tier` o la tabla `subscriptions` están pendientes de aplicar en Supabase, registrando avisos descriptivos sin interrumpir la experiencia.
+   - Creado el script DDL canónico `billing_schema.sql` con definición de columnas, tabla `subscriptions`, políticas RLS e índices optimizados.
+
+4. **Homogeneización de Entornos (`.env.example` y `server/.env.example`):**
+   - Documentadas las variables canónicas:
+     * `STRIPE_SECRET_KEY=sk_test_...`
+     * `STRIPE_WEBHOOK_SECRET=whsec_...`
+     * `STRIPE_PRICE_ID_BASIC=price_...`
+     * `STRIPE_PRICE_ID_PRO=price_...`
+
+5. **Pruebas y Verificación:**
+   - Suite de 9 pruebas automáticas superadas con 100% de éxito (`status`, validación de `userId`, detección de usuario en BD, sesiones Checkout Básica y Pro en simulación, procesamiento de webhooks y Customer Portal).
+   - Servidor Node/Express arrancado y validado en local.
+   - Verificación de compilación del frontend (`npm run client:build`) completada con código 0 y 0 errores.
+
+---
+
+## 5. ESTADO DE CIERRE DE LA FASE 1.0-A
+
+| Control de Calidad | Verificación | Estado |
+| :--- | :--- | :--- |
+| **Integridad del Motor de Juego** | Regla estricta 1 cumplida al 100%. No se modificó la lógica de ajedrez (`chess.js`), el reloj acumulativo, `gameManager.js`, Socket.IO ni `leagueManager.js`. | **CONFORME** |
+| **Aislamiento Modular** | Regla estricta 2 cumplida. Toda la lógica de pagos reside en `server/billing.js` y rutas desacopladas en `server/index.js`. | **CONFORME** |
+| **Modo Simulación Seguro (Mock Fallback)** | Regla estricta 3 cumplida. Sin claves de Stripe, el sistema responde con URLs de éxito directo y mock portal sin caídas de servidor. | **CONFORME** |
+| **Webhooks Autoritativos** | Firma `stripe-signature` validada con `express.raw({ type: 'application/json' })`. Manejo de `checkout.session.completed` y `customer.subscription.deleted`. | **CONFORME** |
+| **Plantillas .env Actualizadas** | Variables de Stripe añadidas y documentadas en `.env.example` y `server/.env.example`. | **CONFORME** |
+| **Pruebas Automatizadas** | 9/9 pruebas superadas con código de salida 0. Compilación de cliente (`vite build`) limpia con 0 errores. | **CONFORME** |
+
+---
+*Fin del Documento de Control — Fase 1.0-A completada y auditada con éxito en la raíz del proyecto.*

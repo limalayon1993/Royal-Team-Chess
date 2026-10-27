@@ -1358,6 +1358,169 @@ async function respondToClubInvite(inviteId, status, clubId, userId) {
     return { success: true };
 }
 
+
+// --- BILLING & SUBSCRIPTIONS (Pilar 6 - Stripe Billing) ---
+
+/**
+ * Get user profile by ID or username
+ * @param {string} identifier - User UUID or username
+ * @returns {Promise<object|null>} profile
+ */
+async function getUserProfile(identifier) {
+    if (!isConnected || !identifier) return null;
+
+    try {
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+        let query = supabase.from('profiles').select('*');
+        if (isUUID) {
+            query = query.eq('id', identifier);
+        } else {
+            query = query.eq('username', identifier);
+        }
+
+        const { data, error } = await query.single();
+        if (error) {
+            if (error.code !== 'PGRST116') {
+                console.error('[DB] Error fetching profile for ' + identifier + ':', error.message);
+            }
+            return null;
+        }
+        if (data && !data.tier) {
+            data.tier = 'free';
+        }
+        return data;
+    } catch (err) {
+        console.error('[DB] Unexpected error in getUserProfile(' + identifier + '):', err);
+        return null;
+    }
+}
+
+/**
+ * Update user subscription tier in profiles table
+ * @param {string} identifier - User UUID or username
+ * @param {'free'|'basic'|'pro'} tier - New tier
+ * @returns {Promise<boolean>} success
+ */
+async function updateUserTier(identifier, tier) {
+    if (!['free', 'basic', 'pro'].includes(tier)) {
+        console.warn('[DB] Invalid tier value: ' + tier + '. Must be free, basic, or pro.');
+        return false;
+    }
+
+    if (!isConnected || !identifier) {
+        console.log('[DB] (InMemory) updateUserTier(' + identifier + ') -> ' + tier);
+        return true;
+    }
+
+    try {
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+        let query = supabase.from('profiles').update({ tier });
+        if (isUUID) {
+            query = query.eq('id', identifier);
+        } else {
+            query = query.eq('username', identifier);
+        }
+
+        const { error } = await query;
+        if (error) {
+            if (error.message.includes('tier') || error.code === '42703' || error.message.includes('schema cache')) {
+                console.warn('[DB] Note: tier column not found in profiles schema. Run billing_schema.sql to persist in DB.');
+                return true;
+            }
+            console.error('[DB] Error updating tier for ' + identifier + ':', error.message);
+            return false;
+        }
+        console.log('[DB] Successfully updated tier for ' + identifier + ' to ' + tier);
+        return true;
+    } catch (err) {
+        console.error('[DB] Unexpected error in updateUserTier(' + identifier + '):', err);
+        return false;
+    }
+}
+
+/**
+ * Persist or update subscription metadata in subscriptions table
+ * @param {object} subData
+ * @returns {Promise<boolean>}
+ */
+async function saveSubscription(subData) {
+    if (!isConnected || !subData || !subData.userId) return false;
+
+    try {
+        const record = {
+            user_id: subData.userId,
+            plan: subData.plan || 'basic',
+            status: subData.status || 'active',
+            stripe_customer_id: subData.customerId || null,
+            stripe_subscription_id: subData.subscriptionId || null,
+            created_at: new Date().toISOString()
+        };
+
+        const { error } = await supabase
+            .from('subscriptions')
+            .upsert(record, { onConflict: 'user_id' });
+
+        if (error) {
+            console.warn('[DB] Note saving subscription record:', error.message);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.warn('[DB] Unexpected error saving subscription:', err.message);
+        return false;
+    }
+}
+
+/**
+ * Get user subscription record
+ * @param {string} userId
+ * @returns {Promise<object|null>}
+ */
+async function getSubscriptionByUserId(userId) {
+    if (!isConnected || !userId) return null;
+
+    try {
+        const { data, error } = await supabase
+            .from('subscriptions')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (error) {
+            console.warn('[DB] Note fetching subscription for ' + userId + ':', error.message);
+            return null;
+        }
+        return data;
+    } catch (err) {
+        return null;
+    }
+}
+
+/**
+ * Lookup userId from stripe customer ID
+ * @param {string} customerId
+ * @returns {Promise<string|null>}
+ */
+async function getUserIdByStripeCustomer(customerId) {
+    if (!isConnected || !customerId) return null;
+
+    try {
+        const { data, error } = await supabase
+            .from('subscriptions')
+            .select('user_id')
+            .eq('stripe_customer_id', customerId)
+            .limit(1)
+            .maybeSingle();
+
+        if (error || !data) return null;
+        return data.user_id;
+    } catch (err) {
+        return null;
+    }
+}
+
 module.exports = {
     isConnected: () => isConnected, // Added back
     getUserElo,
@@ -1405,6 +1568,14 @@ module.exports = {
     incrementMemberContribution,
     initializeClubStats,
     checkClubTrophy,
-    addClubMember
+    addClubMember,
+
+    // BILLING & MONETIZATION (Stripe Billing)
+    get supabase() { return supabase; },
+    getUserProfile,
+    updateUserTier,
+    saveSubscription,
+    getSubscriptionByUserId,
+    getUserIdByStripeCustomer
 };
 

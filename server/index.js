@@ -16,9 +16,20 @@ const { initCronJobs } = require('./cronJobs');
 
 initCronJobs();
 
+const billing = require('./billing');
+
 const app = express();
 app.use(cors());
+
+// Stripe Webhook: express.raw({ type: 'application/json' }) BEFORE express.json() for signature verification
+app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), billing.handleWebhook);
+
 app.use(express.json());
+
+// --- BILLING API (Stripe Billing - Pilar 6 Fase 1.0-A) ---
+app.post('/api/billing/create-checkout-session', billing.createCheckoutSession);
+app.post('/api/billing/customer-portal', billing.createCustomerPortal);
+app.get('/api/billing/status', billing.getBillingStatus);
 
 const db = require('./db');
 
